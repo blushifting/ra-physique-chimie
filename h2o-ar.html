@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>H₂O – Réalité Augmentée</title>
-  <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ar.js@2.2.2/aframe/build/aframe-ar.js"></script>
+  <\!-- Versions compatibles : A-Frame 1.6.0 + AR.js 3.4.7 -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
@@ -31,7 +32,6 @@
   </style>
 </head>
 <body>
-
   <div id="ui-top">📄 Pointez la caméra vers le marqueur <strong>Hiro</strong></div>
   <div id="ui-bottom">
     <span class="badge">Chimie – Terminale</span>
@@ -41,84 +41,36 @@
 
   <a-scene
     embedded
-    arjs="sourceType: webcam;
-          debugUIEnabled: false;
-          detectionMode: mono_and_matrix;
-          matrixCodeType: 3x3;
-          trackingMethod: best;
-          facingMode: environment;"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     renderer="antialias: true; logarithmicDepthBuffer: true;"
     vr-mode-ui="enabled: false"
   >
-
-    <a-assets>
-      <video id="arjs-video" autoplay playsinline
-        style="display:none"
-        width="640" height="480"></video>
-    </a-assets>
-
     <a-marker preset="hiro" smooth="true" smoothCount="5" smoothTolerance="0.01" smoothThreshold="2">
       <\!-- OXYGÈNE -->
-      <a-sphere position="0 0.5 0" radius="0.22" color="#E63946"
-        material="roughness:0.3; metalness:0.1"></a-sphere>
-      <a-text value="O" position="0 0.88 0" align="center" color="white" width="3"
-        font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
+      <a-sphere position="0 0.5 0" radius="0.22" color="#E63946" material="roughness:0.3; metalness:0.1"></a-sphere>
+      <a-text value="O" position="0 0.88 0" align="center" color="white" width="3" font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
       <\!-- HYDROGÈNE gauche -->
-      <a-sphere position="-0.38 0.22 0" radius="0.14" color="#E0E0E0"
-        material="roughness:0.4; metalness:0.05"></a-sphere>
-      <a-text value="H" position="-0.38 0.0 0" align="center" color="white" width="2.5"
-        font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
+      <a-sphere position="-0.38 0.22 0" radius="0.14" color="#E0E0E0" material="roughness:0.4; metalness:0.05"></a-sphere>
+      <a-text value="H" position="-0.38 0.0 0" align="center" color="white" width="2.5" font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
       <\!-- HYDROGÈNE droite -->
-      <a-sphere position="0.38 0.22 0" radius="0.14" color="#E0E0E0"
-        material="roughness:0.4; metalness:0.05"></a-sphere>
-      <a-text value="H" position="0.38 0.0 0" align="center" color="white" width="2.5"
-        font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
+      <a-sphere position="0.38 0.22 0" radius="0.14" color="#E0E0E0" material="roughness:0.4; metalness:0.05"></a-sphere>
+      <a-text value="H" position="0.38 0.0 0" align="center" color="white" width="2.5" font="https://cdn.aframe.io/fonts/Exo2Bold.fnt"></a-text>
       <\!-- LIAISONS -->
-      <a-cylinder position="-0.19 0.36 0" radius="0.04" height="0.44"
-        color="#AAAAAA" rotation="0 0 38" material="roughness:0.5"></a-cylinder>
-      <a-cylinder position="0.19 0.36 0" radius="0.04" height="0.44"
-        color="#AAAAAA" rotation="0 0 -38" material="roughness:0.5"></a-cylinder>
+      <a-cylinder position="-0.19 0.36 0" radius="0.04" height="0.44" color="#AAAAAA" rotation="0 0 38" material="roughness:0.5"></a-cylinder>
+      <a-cylinder position="0.19 0.36 0" radius="0.04" height="0.44" color="#AAAAAA" rotation="0 0 -38" material="roughness:0.5"></a-cylinder>
       <\!-- DOUBLETS NON LIANTS -->
-      <a-sphere position="-0.18 0.76 0" radius="0.06" color="#60A5FA"
-        material="opacity:0.85; transparent:true"></a-sphere>
-      <a-sphere position="0.18 0.76 0" radius="0.06" color="#60A5FA"
-        material="opacity:0.85; transparent:true"></a-sphere>
-      <a-text value="doublets non liants" position="0.5 0.88 0" align="left"
-        color="#93C5FD" width="2"></a-text>
+      <a-sphere position="-0.18 0.76 0" radius="0.06" color="#60A5FA" material="opacity:0.85; transparent:true"></a-sphere>
+      <a-sphere position="0.18 0.76 0" radius="0.06" color="#60A5FA" material="opacity:0.85; transparent:true"></a1sphere>
+      <a-text value="doublets non liants" position="0.5 0.88 0" align="left" color="#93C5FD" width="2"></a-text>
       <\!-- ARC ANGLE -->
-      <a-torus position="0 0.5 0" radius="0.22" radius-tubular="0.01"
-        arc="105" rotation="0 0 -52" color="#FBBF24" material="opacity:0.9"></a-torus>
-      <a-text value="104,5°" position="0 0.15 0" align="center"
-        color="#FCD34D" width="2"></a-text>
+      <a-torus position="0 0.5 0" radius="0.22" radius-tubular="0.01" arc="105" rotation="0 0 -52" color="#FBBF24" material="opacity:0.9"></a-torus>
+      <a-text value="104,5°" position="0 0.15 0" align="center" color="#FCD34D" width="2"></a-text>
       <\!-- ROTATION -->
       <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear">
-        <a-circle position="0 0.01 0" radius="0.55" rotation="-90 0 0"
-          color="#0f172a" material="opacity:0.35; transparent:true"></a-circle>
+        <a-circle position="0 0.01 0" radius="0.55" rotation="-90 0 0" color="#0f172a" material="opacity:0.35; transparent:true"></a-circle>
       </a-entity>
     </a-marker>
-
     <a-entity camera></a-entity>
   </a-scene>
-
-  <script>
-    // Force la caméra grand-angle (évite le téléobjectif sur Android)
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        const video = document.querySelector('video');
-        if (video && video.srcObject) {
-          const track = video.srcObject.getVideoTracks()[0];
-          if (track) {
-            track.applyConstraints({
-              width: { ideal: 640 },
-              height: { ideal: 480 },
-              facingMode: { exact: 'environment' },
-              zoom: 1
-            }).catch(() => {});
-          }
-        }
-      }, 2000);
-    });
-  </script>
-
 </body>
 </html>
