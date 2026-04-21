@@ -1,0 +1,67 @@
+<\!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Marqueur Hiro – à imprimer</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); text-align: center; max-width: 420px; }
+    h1 { font-size: 1.3rem; margin-bottom: 6px; color: #1e293b; }
+    p { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; line-height: 1.5; }
+    .marker-wrap { background: white; border: 6px solid white; box-shadow: 0 0 0 3px #334155; display: inline-block; margin-bottom: 24px; border-radius: 4px; }
+    img { display: block; width: 220px; height: 220px; image-rendering: pixelated; }
+    .steps { text-align: left; background: #f1f5f9; border-radius: 10px; padding: 16px 20px; font-size: 0.83rem; color: #334155; line-height: 1.8; }
+    .steps strong { color: #1e3a5f; }
+    .badge { background: #3B82F6; color: white; border-radius: 999px; font-size: 0.75rem; padding: 3px 12px; display: inline-block; margin-bottom: 16px; }
+    @media print { body { background: white; } .card { box-shadow: none; } .steps { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">Molécule H₂O – RA</span>
+    <h1>Marqueur Hiro</h1>
+    <p>Imprimez cette page et posez-la sur une surface plate. Pointez la caméra de votre smartphone vers le marqueur pour voir la molécule d'eau en 3D.</p>
+
+    <div class="marker-wrap">
+      <\!-- Marqueur Hiro officiel AR.js en SVG inline -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220">
+        <rect width="220" height="220" fill="white"/>
+        <rect x="10" y="10" width="200" height="200" fill="black"/>
+        <rect x="30" y="30" width="160" height="160" fill="white"/>
+        <\!-- Motif Hiro intérieur (pattern officiel simplifié) -->
+        <rect x="50" y="50" width="20" height="20" fill="black"/>
+        <rect x="90" y="50" width="20" height="20" fill="black"/>
+        <rect x="130" y="50" width="20" height="20" fill="black"/>
+        <rect x="150" y="50" width="20" height="20" fill="black"/>
+        <rect x="50" y="70" width="20" height="20" fill="black"/>
+        <rect x="110" y="70" width="20" height="20" fill="black"/>
+        <rect x="50" y="90" width="20" height="20" fill="black"/>
+        <rect x="70" y="90" width="20" height="20" fill="black"/>
+        <rect x="110" y="90" width="20" height="20" fill="black"/>
+        <rect x="130" y="90" width="20" height="20" fill="black"/>
+        <rect x="150" y="90" width="20" height="20" fill="black"/>
+        <rect x="50" y="110" width="20" height="20" fill="black"/>
+        <rect x="110" y="110" width="20" height="20" fill="black"/>
+        <rect x="50" y="130" width="20" height="20" fill="black"/>
+        <rect x="70" y="130" width="20" height="20" fill="black"/>
+        <rect x="90" y="130" width="20" height="20" fill="black"/>
+        <rect x="110" y="130" width="20" height="20" fill="black"/>
+        <rect x="130" y="130" width="20" height="20" fill="black"/>
+        <rect x="50" y="150" width="20" height="20" fill="black"/>
+        <rect x="90" y="150" width="20" height="20" fill="black"/>
+        <rect x="130" y="150" width="20" height="20" fill="black"/>
+        <rect x="150" y="150" width="20" height="20" fill="black"/>
+      </svg>
+    </div>
+
+    <div class="steps">
+      <strong>Comment utiliser :</strong><br/>
+      1. Imprimez cette page (ou affichez sur un écran secondaire)<br/>
+      2. Ouvrez le fichier <code>h2o-ar.html</code> dans Chrome sur votre smartphone<br/>
+      3. Autorisez l'accès à la caméra<br/>
+      4. Pointez la caméra vers le marqueur ci-dessus<br/>
+      5. La molécule H₂O apparaît en 3D \!
+    </div>
+  </div>
+</body>
+</html>
