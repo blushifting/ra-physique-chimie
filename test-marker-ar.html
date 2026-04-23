@@ -108,99 +108,81 @@
     <!-- MindAR target: index 0 = première (et seule) image dans le .mind -->
     <a-entity mindar-image-target="targetIndex: 0">
 
-      <!-- Molécule H₂O — scale 0.5 pour rester dans le repère de la cible -->
-      <a-entity id="molecule" scale="0.5 0.5 0.5" position="0 0 0">
+      <!-- Molécule H₂O — flotte au-dessus du tableau -->
+      <a-entity id="molecule" scale="0.8 0.8 0.8" position="0 0 0.15" rotation="-90 0 0">
 
-        <!-- ── Liaisons O-H ── -->
+        <!-- ── Liaison O-H gauche ── -->
         <a-cylinder
           position="-0.217 -0.168 0"
-          radius="0.045" height="0.55"
+          radius="0.06" height="0.52"
           rotation="0 0 -127.75"
-          color="#7ab3cc"
-          material="roughness:0.35; metalness:0.1; shader:standard">
+          color="#e8e8e8"
+          material="roughness:0.2; metalness:0.3; shader:standard; emissive:#555555; emissiveIntensity:0.2">
         </a-cylinder>
 
+        <!-- ── Liaison O-H droite ── -->
         <a-cylinder
           position="0.217 -0.168 0"
-          radius="0.045" height="0.55"
+          radius="0.06" height="0.52"
           rotation="0 0 127.75"
-          color="#7ab3cc"
-          material="roughness:0.35; metalness:0.1; shader:standard">
+          color="#e8e8e8"
+          material="roughness:0.2; metalness:0.3; shader:standard; emissive:#555555; emissiveIntensity:0.2">
         </a-cylinder>
 
-        <!-- ── Atome O ── -->
+        <!-- ── Atome O (gros, rouge vif) ── -->
         <a-sphere
           position="0 0 0"
-          radius="0.26"
-          color="#CC2200"
-          material="roughness:0.2; metalness:0.08; shader:standard; emissive:#330500; emissiveIntensity:0.15">
+          radius="0.28"
+          color="#e63000"
+          material="roughness:0.15; metalness:0.1; shader:standard; emissive:#7a1500; emissiveIntensity:0.3">
         </a-sphere>
 
-        <!-- ── Atomes H ── -->
+        <!-- ── Atome H gauche (plus petit, blanc/gris) ── -->
         <a-sphere
           position="-0.435 -0.337 0"
-          radius="0.16"
-          color="#c8e0f0"
-          material="roughness:0.25; metalness:0.05; shader:standard; emissive:#1a3a55; emissiveIntensity:0.1">
+          radius="0.14"
+          color="#ffffff"
+          material="roughness:0.2; metalness:0.05; shader:standard; emissive:#aaaaaa; emissiveIntensity:0.2">
         </a-sphere>
 
+        <!-- ── Atome H droite ── -->
         <a-sphere
           position="0.435 -0.337 0"
-          radius="0.16"
-          color="#c8e0f0"
-          material="roughness:0.25; metalness:0.05; shader:standard; emissive:#1a3a55; emissiveIntensity:0.1">
-        </a-sphere>
-
-        <!-- ── Doublets non liants ── -->
-        <a-sphere
-          position="-0.276 0.215 0"
-          radius="0.065"
-          color="#4a9eff"
-          material="opacity:0.75; transparent:true; shader:standard; emissive:#1a4a99; emissiveIntensity:0.4">
-        </a-sphere>
-
-        <a-sphere
-          position="0.276 0.215 0"
-          radius="0.065"
-          color="#4a9eff"
-          material="opacity:0.75; transparent:true; shader:standard; emissive:#1a4a99; emissiveIntensity:0.4">
+          radius="0.14"
+          color="#ffffff"
+          material="roughness:0.2; metalness:0.05; shader:standard; emissive:#aaaaaa; emissiveIntensity:0.2">
         </a-sphere>
 
         <!-- ── Arc angle H-O-H ── -->
         <a-torus
           position="0 0 0"
-          radius="0.18"
-          radius-tubular="0.012"
+          radius="0.19"
+          radius-tubular="0.013"
           arc="104.5"
           rotation="90 0 -127.75"
           color="#f0b429"
-          material="opacity:0.9; shader:standard; emissive:#604010; emissiveIntensity:0.3">
+          material="opacity:0.95; shader:standard; emissive:#805800; emissiveIntensity:0.4">
         </a-torus>
 
         <!-- ── Labels ── -->
         <a-text value="O"
-          position="0.22 0.18 0.1" align="center"
-          color="#ff6a5e" width="2.2"
+          position="0.32 0.22 0.15" align="center"
+          color="#ff8866" width="2.8"
           font="https://cdn.aframe.io/fonts/Exo2Bold.fnt">
         </a-text>
 
         <a-text value="H"
-          position="-0.62 -0.42 0.1" align="center"
-          color="#c8e0f0" width="1.8"
+          position="-0.65 -0.50 0.1" align="center"
+          color="#dddddd" width="2.2"
           font="https://cdn.aframe.io/fonts/Exo2Bold.fnt">
         </a-text>
 
         <a-text value="H"
-          position="0.62 -0.42 0.1" align="center"
-          color="#c8e0f0" width="1.8"
+          position="0.65 -0.50 0.1" align="center"
+          color="#dddddd" width="2.2"
           font="https://cdn.aframe.io/fonts/Exo2Bold.fnt">
         </a-text>
 
-        <a-text value="104,5°"
-          position="0 -0.38 0.12" align="center"
-          color="#f0b429" width="1.4"
-          font="https://cdn.aframe.io/fonts/Exo2Bold.fnt">
-        </a-text>
 
         <!-- ── Rotation lente sur Y ── -->
         <a-animation
@@ -301,6 +283,5 @@
     document.querySelector('a-scene').setAttribute('touch-controls', '');
   </script>
 
-  
 </body>
 </html>
