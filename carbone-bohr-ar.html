@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Atome de Carbone – Modèle de Bohr AR</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: Arial, sans-serif; }
+    #overlay {
+      position: fixed; top: 0; left: 0; width: 100%; z-index: 999;
+      display: flex; flex-direction: column; align-items: center;
+      pointer-events: none;
+    }
+    #title-bar {
+      background: rgba(0,0,0,0.6); color: #fff;
+      padding: 8px 18px; border-radius: 0 0 12px 12px;
+      font-size: 15px; text-align: center; letter-spacing: 0.5px;
+    }
+    #title-bar span { color: #64b5f6; font-weight: bold; }
+    #hint {
+      margin-top: 8px; background: rgba(0,0,0,0.5);
+      color: #ccc; font-size: 12px; padding: 5px 14px;
+      border-radius: 20px;
+    }
+    a-scene { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <div id="title-bar">Atome de <span>Carbone</span> — Modèle de Bohr</div>
+  <div id="hint">Pointez la caméra vers le marqueur imprimé</div>
+</div>
+
+<!-- ORDRE OBLIGATOIRE : A-Frame AVANT MindAR -->
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+<script>
+/* ───────── Composant touch-controls ───────── */
+AFRAME.registerComponent('touch-controls', {
+  init: function () {
+    this.hands = {};
+    this.lastDist = null;
+    this.lastX = null;
+    this.lastY = null;
+    this.rotY = 0;
+    this.rotX = -90; // rotation initiale : modèle face caméra
+    var scene = this.el.sceneEl;
+    scene.addEventListener('touchstart', this.onStart.bind(this), { passive: true });
+    scene.addEventListener('touchmove',  this.onMove.bind(this),  { passive: true });
+    scene.addEventListener('touchend',   this.onEnd.bind(this),   { passive: true });
+  },
+
+  onStart: function (e) {
+    for (var t of e.changedTouches) this.hands[t.identifier] = t;
+    var pts = Object.values(this.hands);
+    if (pts.length === 1) {
+      this.lastX = pts[0].clientX;
+      this.lastY = pts[0].clientY;
+      // Pause la rotation automatique pendant le toucher
+      var anim = document.querySelector('#noyau-anim');
+      if (anim) anim.setAttribute('dur', '0');
+    }
+  },
+
+  onEnd: function (e) {
+    for (var t of e.changedTouches) delete this.hands[t.identifier];
+    this.lastDist = null;
+    this.lastX = null;
+    this.lastY = null;
+    if (Object.keys(this.hands).length === 0) {
+      var anim = document.querySelector('#noyau-anim');
+      if (anim) anim.setAttribute('dur', '8000');
+    }
+  },
+
+  onMove: function (e) {
+    for (var t of e.changedTouches) this.hands[t.identifier] = t;
+    var pts = Object.values(this.hands);
+    var mol = document.getElementById('atome');
+    if (!mol) return;
+
+    if (pts.length === 1) {
+      var dx = pts[0].clientX - this.lastX;
+      var dy = pts[0].clientY - this.lastY;
+      this.rotY += dx * 0.5;
+      this.rotX += dy * 0.5;
+      this.rotX = Math.max(-80, Math.min(80, this.rotX));
+      mol.object3D.rotation.set(
+        THREE.MathUtils.degToRad(this.rotX),
+        THREE.MathUtils.degToRad(this.rotY),
+        0
+      );
+      this.lastX = pts[0].clientX;
+      this.lastY = pts[0].clientY;
+
+    } else if (pts.length === 2) {
+      var dx2 = pts[0].clientX - pts[1].clientX;
+      var dy2 = pts[0].clientY - pts[1].clientY;
+      var dist = Math.sqrt(dx2*dx2 + dy2*dy2);
+      if (this.lastDist) {
+        var s = mol.object3D.scale;
+        var factor = dist / this.lastDist;
+        var ns = Math.min(Math.max(s.x * factor, 0.2), 3.5);
+        mol.object3D.scale.set(ns, ns, ns);
+      }
+      this.lastDist = dist;
+    }
+  }
+});
+
+/* ───────── Double tap = reset vue ───────── */
+var lastTap = 0;
+document.addEventListener('DOMContentLoaded', function() {
+  var scene = document.querySelector('a-scene');
+  if (scene) {
+    scene.addEventListener('touchend', function(e) {
+      var now = Date.now();
+      if (now - lastTap < 300) {
+        var mol = document.getElementById('atome');
+        if (mol) {
+          mol.object3D.rotation.set(
+            THREE.MathUtils.degToRad(-90), 0, 0
+          );
+          mol.object3D.scale.set(0.85, 0.85, 0.85);
+        }
+      }
+      lastTap = now;
+    });
+    scene.setAttribute('touch-controls', '');
+  }
+});
+</script>
+
+<a-scene
+  mindar-image="imageTargetSrc: https://blushifting.github.io/ra-physique-chimie/test-marker.mind;
+                autoStart: true; uiLoading: no; uiScanning: no; uiError: no;
+                filterMinCF: 0.001; filterBeta: 0.01;
+                missTolerance: 10; warmupTolerance: 5;"
+  color-space="sRGB"
+  renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false"
+>
+
+  <a-assets>
+    <!-- pas d'assets externes nécessaires : tout est généré en A-Frame primitives -->
+  </a-assets>
+
+  <!-- Éclairage -->
+  <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+  <a-light type="directional" position="1 2 1" intensity="1.2" color="#ffffff"></a-light>
+  <a-light type="point" position="-1 1 -1" intensity="0.6" color="#90caf9"></a-light>
+
+  <!-- Caméra — look-controls DÉSACTIVÉ obligatoire -->
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+  <!-- Cible image (index 0 = test-marker.mind) -->
+  <a-entity mindar-image-target="targetIndex: 0">
+
+    <!--
+      #atome : groupe principal
+      - position z=0.15 → flotte au-dessus du marqueur
+      - rotation="-90 0 0" → oriente le modèle face caméra (repère MindAR = plan du marqueur)
+      - scale 0.85 pour s'adapter à la taille du marqueur
+    -->
+    <a-entity id="atome" position="0 0 0.15" rotation="-90 0 0" scale="0.85 0.85 0.85">
+
+      <!-- ══════════════════════════════════════════
+           NOYAU : 6 protons + 6 neutrons
+           Représenté par une sphère centrale lumineuse
+           ══════════════════════════════════════════ -->
+      <a-sphere id="noyau" position="0 0 0" radius="0.07"
+                color="#f44336" emissive="#b71c1c" emissive-intensity="0.4"
+                material="roughness: 0.3; metalness: 0.1;">
+        <!-- Rotation lente du noyau -->
+        <a-animation id="noyau-anim" attribute="rotation"
+                     from="0 0 0" to="0 360 0"
+                     dur="8000" repeat="indefinite" easing="linear"></a-animation>
+      </a-sphere>
+
+      <!-- Halo noyau (lueur) -->
+      <a-sphere position="0 0 0" radius="0.085"
+                material="color: #ef9a9a; opacity: 0.18; transparent: true; side: double;
+                          roughness: 1; metalness: 0;">
+      </a-sphere>
+
+      <!-- ══════════════════════════════════════════
+           COUCHE K : 2 électrons (n=1, r=0.22)
+           ══════════════════════════════════════════ -->
+
+      <!-- Orbite K (anneau) -->
+      <a-torus position="0 0 0" radius="0.22" radius-tubular="0.003"
+               color="#90caf9" opacity="0.55"
+               material="transparent: true; roughness: 1;">
+      </a-torus>
+
+      <!-- Électron K1 — orbite circulaire dans le plan XY -->
+      <a-entity id="orb-k1"
+                animation="property: rotation; from: 0 0 0; to: 0 0 360;
+                           dur: 1800; loop: true; easing: linear;">
+        <a-sphere position="0.22 0 0" radius="0.028"
+                  color="#42a5f5" emissive="#0d47a1" emissive-intensity="0.7"
+                  material="roughness: 0.2; metalness: 0.3;">
+        </a-sphere>
+      </a-entity>
+
+      <!-- Électron K2 — en opposition de phase (180°) -->
+      <a-entity id="orb-k2"
+                animation="property: rotation; from: 180 0 0; to: 180 0 360;
+                           dur: 1800; loop: true; easing: linear;">
+        <a-sphere position="0.22 0 0" radius="0.028"
+                  color="#42a5f5" emissive="#0d47a1" emissive-intensity="0.7"
+                  material="roughness: 0.2; metalness: 0.3;">
+        </a-sphere>
+      </a-entity>
+
+      <!-- ══════════════════════════════════════════
+           COUCHE L : 4 électrons (n=2, r=0.45)
+           Inclinées pour effet 3D
+           ══════════════════════════════════════════ -->
+
+      <!-- Orbite L1 — plan XY -->
+      <a-torus position="0 0 0" radius="0.45" radius-tubular="0.003"
+               rotation="0 0 0"
+               color="#ce93d8" opacity="0.45"
+               material="transparent: true; roughness: 1;">
+      </a-torus>
+
+      <!-- Orbite L2 — inclinée 60° -->
+      <a-torus position="0 0 0" radius="0.45" radius-tubular="0.003"
+               rotation="60 0 0"
+               color="#ce93d8" opacity="0.45"
+               material="transparent: true; roughness: 1;">
+      </a-torus>
+
+      <!-- Électron L1 — plan XY, lent -->
+      <a-entity id="orb-l1"
+                animation="property: rotation; from: 0 0 0; to: 0 0 360;
+                           dur: 3200; loop: true; easing: linear;">
+        <a-sphere position="0.45 0 0" radius="0.032"
+                  color="#ab47bc" emissive="#4a148c" emissive-intensity="0.7"
+                  material="roughness: 0.2; metalness: 0.3;">
+        </a-sphere>
+      </a-entity>
+
+      <!-- Électron L2 — plan XY, en opposition -->
+      <a-entity id="orb-l2"
+                animation="property: rotation; from: 180 0 0; to: 180 0 360;
+                           dur: 3200; loop: true; easing: linear;">
+        <a-sphere position="0.45 0 0" radius="0.032"
+                  color="#ab47bc" emissive="#4a148c" emissive-intensity="0.7"
+                  material="roughness: 0.2; metalness: 0.3;">
+        </a-sphere>
+      </a-entity>
+
+      <!-- Électron L3 — orbite inclinée 60° -->
+      <a-entity id="orb-l3" rotation="60 0 0"
+                animation="property: rotation; from: 60 0 0; to: 60 0 360;
+                           dur: 3800; loop: true; easing: linear;">
+        <a-sphere position="0.45 0 0" radius="0.032"
+                  color="#ce93d8" emissive="#6a1b9a" emissive-intensity="0.7"
+                  material="roughness: 0.2; metalness: 0.3;">
+        </a-sphere>
+      </a-entity>
+
+      <!-- Électron L4 — orbite inclinée 60°, en opposition -->
+      <a-entity id="orb-l4" rotation="60 0 180"
+                animation="property: rotation; from: 60 0 180; to: 60 0 540;
+                           dur: 3800; loop: true; easing: linear;">
+        <a-sphere position="0.45 0 0" radius="0.032"
+                  color="#ce93d8" emissive="#6a1b9a" emissive-intensity="0.7"
+                  material="roughness: 0.2; metalness: 0.3;">
+        </a-sphere>
+      </a-entity>
+
+      <!-- ══════════════════════════════════════════
+           LABELS
+           ══════════════════════════════════════════ -->
+
+      <!-- Label symbole C -->
+      <a-text value="C" position="0 0 0.12" align="center"
+              color="#ffffff" width="0.6" font="dejavu"
+              material="alphaTest: 0.5">
+      </a-text>
+
+      <!-- Label Z=6 -->
+      <a-text value="Z = 6" position="0 -0.12 0.12" align="center"
+              color="#ef9a9a" width="0.35" font="dejavu"
+              material="alphaTest: 0.5">
+      </a-text>
+
+      <!-- Label couche K -->
+      <a-text value="K : 2e⁻" position="0.26 0.06 0" align="left"
+              color="#90caf9" width="0.28" font="dejavu"
+              material="alphaTest: 0.5">
+      </a-text>
+
+      <!-- Label couche L -->
+      <a-text value="L : 4e⁻" position="0.5 0.06 0" align="left"
+              color="#ce93d8" width="0.28" font="dejavu"
+              material="alphaTest: 0.5">
+      </a-text>
+
+    </a-entity> <!-- fin #atome -->
+  </a-entity> <!-- fin mindar-image-target -->
+
+</a-scene>
+
+</body>
+</html>
