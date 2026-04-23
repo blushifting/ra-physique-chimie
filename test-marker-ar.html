@@ -3,13 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>H2O - Realite Augmentee</title>
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+  <title>H2O - Réalité Augmentée</title>
+
+  <!-- MindAR + A-Frame -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; background: #000; }
 
+    /* ── Hint ── */
+    #ui-hint {
+      position: fixed; top: 14px; left: 0; right: 0;
+      text-align: center; z-index: 999; pointer-events: none;
+    }
+    #ui-hint span {
+      background: rgba(0,0,0,0.65); color: white;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 0.82rem; padding: 6px 16px;
+      border-radius: 999px;
+    }
+
+    /* ── Bottom UI ── */
     #ui-bottom {
       position: fixed; bottom: 0; left: 0; right: 0;
       background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
@@ -30,16 +46,8 @@
       font-size: 0.78rem; opacity: 0.85; line-height: 1.4;
       font-family: 'Segoe UI', sans-serif;
     }
-    #ui-hint {
-      position: fixed; top: 14px; left: 0; right: 0;
-      text-align: center; z-index: 999; pointer-events: none;
-    }
-    #ui-hint span {
-      background: rgba(0,0,0,0.65); color: white;
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 0.82rem; padding: 6px 16px;
-      border-radius: 999px;
-    }
+
+    /* ── Loading ── */
     #loading {
       position: fixed; inset: 0;
       background: #0a0d14;
@@ -63,36 +71,47 @@
 </head>
 <body>
 
+  <!-- Loading screen -->
   <div id="loading">
     <div class="spinner"></div>
-    <p>Chargement du detecteur NFT...</p>
+    <p>Chargement du détecteur MindAR...</p>
   </div>
 
-  <div id="ui-hint"><span>Pointez vers le tableau d'energies de liaison</span></div>
+  <!-- Top hint -->
+  <div id="ui-hint">
+    <span>Pointez vers le tableau d'énergies de liaison</span>
+  </div>
 
+  <!-- Bottom info -->
   <div id="ui-bottom">
     <span class="badge">Chimie - Terminale</span>
-    <h1>H&#x2082;O &mdash; Molecule d'eau</h1>
-    <p>Geometrie <strong>coudee</strong> &middot; Angle H&ndash;O&ndash;H = 104,5&deg; &middot; 2 doublets non liants &middot; Hybridation sp&#xB3;</p>
+    <h1>H&#x2082;O &mdash; Molécule d'eau</h1>
+    <p>Géométrie <strong>coudée</strong> &middot; Angle H&ndash;O&ndash;H = 104,5° &middot; 2 doublets non liants &middot; Hybridation sp³</p>
   </div>
 
+  <!-- ═══════════════════════════════════════════
+       A-FRAME SCENE — MindAR image tracking
+  ════════════════════════════════════════════ -->
   <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best; imageRecoMode: 2d;"
-    renderer="antialias: true; logarithmicDepthBuffer: true;"
+    mindar-image="imageTargetSrc: https://blushifting.github.io/ra-physique-chimie/test-marker.mind; autoStart: true; uiLoading: no; uiScanning: no; uiError: no;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
     vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
   >
 
-    <a-nft
-      type="nft"
-      url="https://blushifting.github.io/ra-physique-chimie/test-marker"
-      smooth="true"
-      smoothCount="10"
-      smoothTolerance="0.01"
-      smoothThreshold="5"
-    >
-      <a-entity id="molecule" scale="0.5 0.5 0.5">
+    <a-assets></a-assets>
 
+    <!-- Camera (required by MindAR) -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- MindAR target: index 0 = première (et seule) image dans le .mind -->
+    <a-entity mindar-image-target="targetIndex: 0">
+
+      <!-- Molécule H₂O — scale 0.5 pour rester dans le repère de la cible -->
+      <a-entity id="molecule" scale="0.5 0.5 0.5" position="0 0 0">
+
+        <!-- ── Liaisons O-H ── -->
         <a-cylinder
           position="-0.217 -0.168 0"
           radius="0.045" height="0.55"
@@ -109,6 +128,7 @@
           material="roughness:0.35; metalness:0.1; shader:standard">
         </a-cylinder>
 
+        <!-- ── Atome O ── -->
         <a-sphere
           position="0 0 0"
           radius="0.26"
@@ -116,6 +136,7 @@
           material="roughness:0.2; metalness:0.08; shader:standard; emissive:#330500; emissiveIntensity:0.15">
         </a-sphere>
 
+        <!-- ── Atomes H ── -->
         <a-sphere
           position="-0.435 -0.337 0"
           radius="0.16"
@@ -130,6 +151,7 @@
           material="roughness:0.25; metalness:0.05; shader:standard; emissive:#1a3a55; emissiveIntensity:0.1">
         </a-sphere>
 
+        <!-- ── Doublets non liants ── -->
         <a-sphere
           position="-0.276 0.215 0"
           radius="0.065"
@@ -144,6 +166,7 @@
           material="opacity:0.75; transparent:true; shader:standard; emissive:#1a4a99; emissiveIntensity:0.4">
         </a-sphere>
 
+        <!-- ── Arc angle H-O-H ── -->
         <a-torus
           position="0 0 0"
           radius="0.18"
@@ -154,6 +177,7 @@
           material="opacity:0.9; shader:standard; emissive:#604010; emissiveIntensity:0.3">
         </a-torus>
 
+        <!-- ── Labels ── -->
         <a-text value="O"
           position="0.22 0.18 0.1" align="center"
           color="#ff6a5e" width="2.2"
@@ -172,12 +196,13 @@
           font="https://cdn.aframe.io/fonts/Exo2Bold.fnt">
         </a-text>
 
-        <a-text value="104,5"
+        <a-text value="104,5°"
           position="0 -0.38 0.12" align="center"
           color="#f0b429" width="1.4"
           font="https://cdn.aframe.io/fonts/Exo2Bold.fnt">
         </a-text>
 
+        <!-- ── Rotation lente sur Y ── -->
         <a-animation
           attribute="rotation"
           to="0 360 0"
@@ -187,48 +212,49 @@
         </a-animation>
 
       </a-entity>
-    </a-nft>
+    </a-entity>
 
-    <a-entity camera></a-entity>
   </a-scene>
 
   <script>
-    document.querySelector('a-scene').addEventListener('loaded', function() {
-      setTimeout(function() {
+    // Masquer l'écran de chargement une fois la scène prête
+    document.querySelector('a-scene').addEventListener('loaded', function () {
+      setTimeout(function () {
         var loader = document.getElementById('loading');
         if (loader) loader.classList.add('hidden');
-      }, 1500);
+      }, 1200);
     });
 
-    AFRAME.registerComponent('gesture-detector', {
-      init: function() {
-        this.hands = {};
+    // Pinch-to-zoom sur mobile
+    AFRAME.registerComponent('pinch-zoom', {
+      init: function () {
+        this.hands    = {};
         this.lastDist = null;
         var scene = this.el.sceneEl;
-        scene.addEventListener('touchstart', this.onStart.bind(this), {passive:true});
-        scene.addEventListener('touchmove',  this.onMove.bind(this),  {passive:true});
-        scene.addEventListener('touchend',   this.onEnd.bind(this),   {passive:true});
+        scene.addEventListener('touchstart', this.onStart.bind(this), { passive: true });
+        scene.addEventListener('touchmove',  this.onMove.bind(this),  { passive: true });
+        scene.addEventListener('touchend',   this.onEnd.bind(this),   { passive: true });
       },
-      onStart: function(e) {
+      onStart: function (e) {
         for (var t of e.changedTouches) this.hands[t.identifier] = t;
       },
-      onEnd: function(e) {
+      onEnd: function (e) {
         for (var t of e.changedTouches) delete this.hands[t.identifier];
         this.lastDist = null;
       },
-      onMove: function(e) {
+      onMove: function (e) {
         for (var t of e.changedTouches) this.hands[t.identifier] = t;
         var pts = Object.values(this.hands);
         if (pts.length === 2) {
-          var dx = pts[0].clientX - pts[1].clientX;
-          var dy = pts[0].clientY - pts[1].clientY;
-          var dist = Math.sqrt(dx*dx + dy*dy);
+          var dx   = pts[0].clientX - pts[1].clientX;
+          var dy   = pts[0].clientY - pts[1].clientY;
+          var dist = Math.sqrt(dx * dx + dy * dy);
           if (this.lastDist) {
             var mol = document.getElementById('molecule');
             if (mol) {
-              var s = mol.object3D.scale;
+              var s      = mol.object3D.scale;
               var factor = dist / this.lastDist;
-              var ns = Math.min(Math.max(s.x * factor, 0.15), 4);
+              var ns     = Math.min(Math.max(s.x * factor, 0.15), 4);
               mol.object3D.scale.set(ns, ns, ns);
             }
           }
@@ -237,7 +263,7 @@
       }
     });
 
-    document.querySelector('a-scene').setAttribute('gesture-detector', '');
+    document.querySelector('a-scene').setAttribute('pinch-zoom', '');
   </script>
 
 </body>
