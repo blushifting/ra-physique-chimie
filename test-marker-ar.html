@@ -79,7 +79,7 @@
 
   <!-- Top hint -->
   <div id="ui-hint">
-    <span>Pointez vers le tableau d'énergies de liaison</span>
+    <span>Pointez vers le tableau · 1 doigt = tourner · 2 doigts = zoomer</span>
   </div>
 
   <!-- Bottom info -->
@@ -93,7 +93,7 @@
        A-FRAME SCENE — MindAR image tracking
   ════════════════════════════════════════════ -->
   <a-scene
-    mindar-image="imageTargetSrc: https://blushifting.github.io/ra-physique-chimie/test-marker.mind; autoStart: true; uiLoading: no; uiScanning: no; uiError: no;"
+    mindar-image="imageTargetSrc: https://blushifting.github.io/ra-physique-chimie/test-marker.mind; autoStart: true; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.001; filterBeta: 0.01; missTolerance: 10; warmupTolerance: 5;"
     color-space="sRGB"
     renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
     vr-mode-ui="enabled: false"
@@ -225,11 +225,16 @@
       }, 1200);
     });
 
-    // Pinch-to-zoom sur mobile
-    AFRAME.registerComponent('pinch-zoom', {
+    // Rotation 1 doigt + Pinch-to-zoom 2 doigts
+    AFRAME.registerComponent('touch-controls', {
       init: function () {
-        this.hands    = {};
-        this.lastDist = null;
+        this.hands     = {};
+        this.lastDist  = null;
+        this.lastX     = null;
+        this.lastY     = null;
+        // Rotation manuelle accumulée (par-dessus l'animation auto)
+        this.rotY = 0;
+        this.rotX = 0;
         var scene = this.el.sceneEl;
         scene.addEventListener('touchstart', this.onStart.bind(this), { passive: true });
         scene.addEventListener('touchmove',  this.onMove.bind(this),  { passive: true });
@@ -237,35 +242,64 @@
       },
       onStart: function (e) {
         for (var t of e.changedTouches) this.hands[t.identifier] = t;
+        var pts = Object.values(this.hands);
+        if (pts.length === 1) {
+          this.lastX = pts[0].clientX;
+          this.lastY = pts[0].clientY;
+          // Stopper l'animation auto quand l'utilisateur tourne manuellement
+          var anim = document.querySelector('#molecule a-animation');
+          if (anim) anim.setAttribute('dur', '0');
+        }
       },
       onEnd: function (e) {
         for (var t of e.changedTouches) delete this.hands[t.identifier];
         this.lastDist = null;
+        this.lastX    = null;
+        this.lastY    = null;
+        // Reprendre l'animation auto si plus de doigt
+        if (Object.keys(this.hands).length === 0) {
+          var anim = document.querySelector('#molecule a-animation');
+          if (anim) anim.setAttribute('dur', '14000');
+        }
       },
       onMove: function (e) {
         for (var t of e.changedTouches) this.hands[t.identifier] = t;
         var pts = Object.values(this.hands);
-        if (pts.length === 2) {
-          var dx   = pts[0].clientX - pts[1].clientX;
-          var dy   = pts[0].clientY - pts[1].clientY;
-          var dist = Math.sqrt(dx * dx + dy * dy);
+        var mol = document.getElementById('molecule');
+        if (!mol) return;
+
+        if (pts.length === 1) {
+          // 1 doigt = rotation
+          var dx = pts[0].clientX - this.lastX;
+          var dy = pts[0].clientY - this.lastY;
+          this.rotY += dx * 0.5;
+          this.rotX += dy * 0.5;
+          this.rotX = Math.max(-80, Math.min(80, this.rotX));
+          mol.object3D.rotation.set(
+            THREE.MathUtils.degToRad(this.rotX),
+            THREE.MathUtils.degToRad(this.rotY),
+            0
+          );
+          this.lastX = pts[0].clientX;
+          this.lastY = pts[0].clientY;
+        } else if (pts.length === 2) {
+          // 2 doigts = zoom
+          var dx2  = pts[0].clientX - pts[1].clientX;
+          var dy2  = pts[0].clientY - pts[1].clientY;
+          var dist = Math.sqrt(dx2 * dx2 + dy2 * dy2);
           if (this.lastDist) {
-            var mol = document.getElementById('molecule');
-            if (mol) {
-              var s      = mol.object3D.scale;
-              var factor = dist / this.lastDist;
-              var ns     = Math.min(Math.max(s.x * factor, 0.15), 4);
-              mol.object3D.scale.set(ns, ns, ns);
-            }
+            var s      = mol.object3D.scale;
+            var factor = dist / this.lastDist;
+            var ns     = Math.min(Math.max(s.x * factor, 0.15), 4);
+            mol.object3D.scale.set(ns, ns, ns);
           }
           this.lastDist = dist;
         }
       }
     });
 
-    document.querySelector('a-scene').setAttribute('pinch-zoom', '');
+    document.querySelector('a-scene').setAttribute('touch-controls', '');
   </script>
 
-  
 </body>
 </html>
