@@ -112,18 +112,17 @@
 
 <div id="home">
   <h1>Banc optique en réalité augmentée</h1>
-  <p class="sub">Formation d’une image par une lentille mince convergente — Seconde générale</p>
   <div class="card">
     Un banc optique complet posé sur votre table : <b>lampe</b>, <b>objet</b> (lettre F découpée),
     <b>lentille convergente</b> et <b>écran</b>.<br><br>
-    • Déplacez l’objet, la lentille et l’écran, et observez l’image se former (nette ou floue).<br>
+    • Déplacez la lentille et l’écran, et observez l’image se former (nette ou floue).<br>
     • Affichez les <b>trois rayons de construction</b> — invisible en vrai TP !<br>
     • Modifiez la distance focale <i>f′</i> et la taille de l’objet.
   </div>
   <button id="btnAR">Lancer la RA ▶</button>
   <button id="btn3D" class="ghost">Mode 3D interactif (sans RA)</button>
   <div id="err"></div>
-  <div class="version">v1.1 — 2026-07-17 · Chrome Android + ARCore pour la RA</div>
+  <div class="version">v1.2 — 2026-07-17 · Chrome Android + ARCore pour la RA</div>
 </div>
 
 <div id="hud" hidden>
@@ -145,16 +144,12 @@
     </div>
     <div id="sliders" hidden>
       <div class="sl">
-        <label>Position de l’objet <output id="oObj"></output></label>
-        <input type="range" id="sObj" min="10" max="50" step="0.5" value="30">
-      </div>
-      <div class="sl">
         <label>Position de la lentille <output id="oLens"></output></label>
-        <input type="range" id="sLens" min="30" max="90" step="0.5" value="60">
+        <input type="range" id="sLens" min="8" max="120" step="0.5" value="30">
       </div>
       <div class="sl">
         <label>Position de l’écran <output id="oScr"></output></label>
-        <input type="range" id="sScr" min="35" max="116" step="0.5" value="75">
+        <input type="range" id="sScr" min="12" max="146" step="0.5" value="45">
       </div>
       <div class="sl">
         <label>Distance focale f′ <output id="oF"></output></label>
@@ -173,7 +168,7 @@
       <button id="btnQuit">✕ Quitter</button>
     </div>
   </div>
-  <div class="badge">v1.1</div>
+  <div class="badge">v1.2</div>
 </div>
 
 <script type="module">
@@ -193,8 +188,9 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
    ===================================================================== */
 
 /* ---------- Constantes géométriques (mètres, échelle 1:1 avant scale) */
-const BENCH_CM   = 120;          // longueur graduée du banc
-const RAIL_LEN   = 1.24;
+const BENCH_CM   = 150;          // longueur graduée du banc
+const RAIL_LEN   = 1.64;         // rail légèrement plus long (lampe avant la graduation 0)
+const RAIL_X     = -0.05;        // décalage du rail : couvre ≈ cm −12 à 152
 const RAIL_H     = 0.03;
 const RAIL_D     = 0.07;
 const AXIS_H     = 0.15;         // hauteur de l'axe optique au-dessus du sol
@@ -203,7 +199,8 @@ const LENS_R     = 0.032;        // rayon de la lentille (m)
 const APERTURE_R = 2.0;          // rayon d'ouverture utile pour le flou (cm)
 const SCREEN_W   = 0.14, SCREEN_H = 0.16;   // écran (m)
 const SCR_W_CM   = 14,   SCR_H_CM = 16;
-const LAMP_CM    = 4;            // position fixe de la lampe
+const LAMP_CM    = -6;           // lampe collée à l'objet, juste avant la graduation 0
+const OBJ_CM     = 0;            // objet fixe à la graduation 0
 const RAY_R      = 0.0012;       // rayon des cylindres "rayons"
 const SHARP_TOL  = 0.3;          // tolérance de netteté (cm)
 const DEFAULT_SCALE = 0.5;       // banc de 60 cm posé sur la table
@@ -211,7 +208,7 @@ const DEFAULT_SCALE = 0.5;       // banc de 60 cm posé sur la table
 const cm2x = (cm) => (cm - BENCH_CM / 2) / 100;   // cm banc -> x local (m)
 
 /* ---------- Paramètres de la simulation (cm) ---------- */
-const P = { f: 10, xObj: 30, xLens: 60, xScr: 75, hObj: 2, rays: false };
+const P = { f: 10, xObj: OBJ_CM, xLens: 30, xScr: 45, hObj: 2, rays: false };
 
 /* ---------- État session ---------- */
 let renderer = null, scene = null, camera = null;
@@ -223,7 +220,7 @@ let mode = null;                       // 'ar' | '3d'
 /* références internes au modèle */
 let objGroup, lensGroup, scrGroup, raysGroup, marksGroup;
 let lensGlass, objTex, objCtx, scrTex, scrCtx;
-let imgMarker, imgLabel, labF, labFp, tickF, tickFp;
+let imgMarker, imgLabel, labF, labFp, tickF, tickFp, ghostImg;
 
 /* interactions tactiles */
 let touchStartX = 0, touchStartY = 0, isDragging = false, isTwoFinger = false, lastTouchDist = 0;
@@ -357,7 +354,7 @@ function makeLabel(text, color = '#eceff1', height = 0.024) {
 
 function makeRulerTexture() {
   const c = document.createElement('canvas');
-  c.width = 1920; c.height = 48;              // 16 px / cm sur 120 cm
+  c.width = 2400; c.height = 48;              // 16 px / cm sur 150 cm
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#1b2027';
   ctx.fillRect(0, 0, c.width, c.height);
@@ -386,11 +383,13 @@ const rayMats   = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
 const rayDashMats = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
   new THREE.LineDashedMaterial({ color: c, dashSize: 0.014, gapSize: 0.009, transparent: true, opacity: 0.7 }));
 
-function makeStand(group) {
+function makeStand(group, topY) {
+  // topY = bas de la pièce portée : la tige s'arrête juste dessous, sans la traverser
   const base = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.045), matMetal);
   base.position.y = RAIL_H + 0.01;
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, AXIS_H - RAIL_H - 0.02, 10), matStem);
-  stem.position.y = RAIL_H + 0.02 + (AXIS_H - RAIL_H - 0.02) / 2;
+  const h = Math.max(0.005, topY - RAIL_H - 0.02);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, h, 10), matStem);
+  stem.position.y = RAIL_H + 0.02 + h / 2;
   group.add(base, stem);
 }
 
@@ -407,25 +406,25 @@ function buildBench() {
   shX.fillStyle = grad; shX.fillRect(0, 0, 256, 64);
   const shTex = new THREE.CanvasTexture(shC);
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.42, 0.34),
+    new THREE.PlaneGeometry(1.9, 0.34),
     new THREE.MeshBasicMaterial({ map: shTex, transparent: true, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.0006;
+  shadow.position.set(RAIL_X, 0.0006, 0);
   g.add(shadow);
 
   /* rail + règle graduée */
   const rail = new THREE.Mesh(new THREE.BoxGeometry(RAIL_LEN, RAIL_H, RAIL_D), matMetal);
-  rail.position.y = RAIL_H / 2;
+  rail.position.set(RAIL_X, RAIL_H / 2, 0);
   g.add(rail);
   const ruler = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.20, 0.03),
+    new THREE.PlaneGeometry(1.50, 0.03),
     new THREE.MeshBasicMaterial({ map: makeRulerTexture() }));
   ruler.position.set(0, RAIL_H / 2, RAIL_D / 2 + 0.0006);
   g.add(ruler);
 
   /* axe optique (pointillés) */
   const axGeo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-0.59, AXIS_H, 0), new THREE.Vector3(0.59, AXIS_H, 0)]);
+    new THREE.Vector3(-0.83, AXIS_H, 0), new THREE.Vector3(0.76, AXIS_H, 0)]);
   const axis = new THREE.Line(axGeo, new THREE.LineDashedMaterial({
     color: 0xb0bec5, dashSize: 0.012, gapSize: 0.012, transparent: true, opacity: 0.35 }));
   axis.computeLineDistances();
@@ -433,7 +432,7 @@ function buildBench() {
 
   /* lampe (fixe) */
   const lamp = new THREE.Group();
-  makeStand(lamp);
+  makeStand(lamp, AXIS_H - 0.034);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.09, 24), matMetal);
   body.rotation.z = Math.PI / 2;
   body.position.y = AXIS_H;
@@ -442,9 +441,7 @@ function buildBench() {
     new THREE.MeshBasicMaterial({ color: 0xfff3d6 }));
   front.position.set(0.0455, AXIS_H, 0);
   front.rotation.y = Math.PI / 2;
-  const glow = makeLabel('●', 'rgba(255,240,200,0.55)', 0.05);
-  glow.position.set(0.05, AXIS_H, 0);
-  lamp.add(body, front, glow);
+  lamp.add(body, front);
   const lampLab = makeLabel('lampe', '#90a4ae', 0.02);
   lampLab.position.set(0, AXIS_H + 0.085, 0);
   lamp.add(lampLab);
@@ -454,9 +451,9 @@ function buildBench() {
   light.position.set(cm2x(LAMP_CM) + 0.05, AXIS_H, 0);
   g.add(light);
 
-  /* objet : diapositive avec F découpé */
+  /* objet : diapositive avec F découpé (fixe à la graduation 0) */
   objGroup = new THREE.Group();
-  makeStand(objGroup);
+  makeStand(objGroup, AXIS_H - SLIDE_CM / 200);
   const slide = new THREE.Mesh(
     new THREE.PlaneGeometry(SLIDE_CM / 100, SLIDE_CM / 100),
     new THREE.MeshBasicMaterial({ map: makeObjectTexture(), side: THREE.DoubleSide }));
@@ -470,7 +467,7 @@ function buildBench() {
 
   /* lentille mince convergente */
   lensGroup = new THREE.Group();
-  makeStand(lensGroup);
+  makeStand(lensGroup, AXIS_H - LENS_R - 0.007);
   lensGlass = new THREE.Mesh(
     new THREE.SphereGeometry(LENS_R, 32, 24),
     new THREE.MeshPhysicalMaterial({
@@ -488,7 +485,7 @@ function buildBench() {
 
   /* écran */
   scrGroup = new THREE.Group();
-  makeStand(scrGroup);
+  makeStand(scrGroup, AXIS_H - SCREEN_H / 2);
   const board = new THREE.Mesh(
     new THREE.PlaneGeometry(SCREEN_W, SCREEN_H),
     new THREE.MeshStandardMaterial({ color: 0xf4f3ee, roughness: 0.9, side: THREE.DoubleSide }));
@@ -524,8 +521,29 @@ function buildBench() {
     new THREE.SphereGeometry(0.0025, 12, 8),
     new THREE.MeshBasicMaterial({ color: 0xffffff }));
   imgLabel = makeLabel('image', '#ffffff', 0.018);
+  imgLabel.material.depthTest = false;      // jamais coupé par l'écran
+  imgLabel.renderOrder = 999;
   imgMarker.visible = imgLabel.visible = false;
   g.add(imgMarker, imgLabel);
+
+  /* image virtuelle "fantôme" : ce que l'œil voit à travers la lentille
+     (F droit, agrandi |γ|, situé en OA' < 0 — cohérent avec les prolongements) */
+  const gc = document.createElement('canvas');
+  gc.width = gc.height = 256;
+  const gx = gc.getContext('2d');
+  gx.translate(128, 128);
+  gx.shadowColor = 'rgba(255,246,218,0.8)';
+  gx.shadowBlur = 14;
+  drawFShape(gx, 240, 'rgba(255,246,218,0.9)');
+  const gTex = new THREE.CanvasTexture(gc);
+  gTex.colorSpace = THREE.SRGBColorSpace;
+  ghostImg = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: gTex, transparent: true, opacity: 0.5,
+      side: THREE.DoubleSide, depthWrite: false }));
+  ghostImg.rotation.y = -Math.PI / 2;
+  ghostImg.visible = false;
+  g.add(ghostImg);
 
   g.scale.setScalar(DEFAULT_SCALE);
   return g;
@@ -553,6 +571,16 @@ function dashLine(a, b, mat) {
   l.computeLineDistances();
   return l;
 }
+function arrowCone(a, b, mat, frac = 0.55) {
+  // petit cône au milieu du segment : sens de propagation de la lumière
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  if (len < 0.04) return null;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(RAY_R * 3.4, RAY_R * 10, 8), mat);
+  cone.position.copy(a).addScaledVector(dir, frac);
+  cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return cone;
+}
 
 function rebuildRays(o) {
   // vider (les matériaux sont partagés : on ne libère que les géométries)
@@ -577,22 +605,28 @@ function rebuildRays(o) {
 
   lensY.forEach((y0, i) => {
     const mat = rayMats[i];
-    // segment objet -> lentille
-    const s1 = rayCyl(pt(o.OA, yB), pt(0, y0), mat);
+    const A = pt(o.OA, yB), L = pt(0, y0);
+    // segment objet -> lentille (+ flèche de sens)
+    const s1 = rayCyl(A, L, mat);
     if (s1) raysGroup.add(s1);
-    // segment lentille -> écran
+    const a1 = arrowCone(A, L, mat);
+    if (a1) raysGroup.add(a1);
+    // segment lentille -> écran (+ flèche de sens)
     const yScr = y0 + slopes[i] * o.OS;
-    const s2 = rayCyl(pt(0, y0), pt(o.OS, yScr), mat);
+    const S = pt(o.OS, yScr);
+    const s2 = rayCyl(L, S, mat);
     if (s2) raysGroup.add(s2);
+    const a2 = arrowCone(L, S, mat, 0.45);
+    if (a2) raysGroup.add(a2);
     // image virtuelle : prolongements en pointillés vers B'
-    if (o.virtual) raysGroup.add(dashLine(pt(0, y0), pt(o.OAp, yImg), rayDashMats[i]));
+    if (o.virtual && o.OAp >= -80) raysGroup.add(dashLine(L, pt(o.OAp, yImg), rayDashMats[i]));
   });
 
   // marqueur du point image B'
   if (!o.infinite) {
-    const onBench = P.xLens + o.OAp > 0 && P.xLens + o.OAp < BENCH_CM;
+    const inRange = o.xImg > -60 && o.xImg < BENCH_CM;
     const behindScreen = !o.virtual && o.OAp > o.OS;   // image au-delà de l'écran : rayons bloqués
-    if (onBench && !behindScreen) {
+    if (inRange && !behindScreen) {
       const p = pt(o.OAp, yImg);
       imgMarker.position.copy(p);
       imgLabel.position.copy(p).add(new THREE.Vector3(0, 0.022, 0));
@@ -606,18 +640,27 @@ function rebuildRays(o) {
    MISE À JOUR GLOBALE
    ===================================================================== */
 function updateSim() {
-  /* contraintes géométriques */
-  P.xObj  = Math.min(P.xObj, P.xLens - 8);
-  P.xLens = Math.max(Math.min(P.xLens, P.xScr - 4), P.xObj + 8);
+  /* contraintes géométriques (objet fixe à 0) */
+  P.xLens = Math.max(8, Math.min(P.xLens, P.xScr - 4, 120));
   P.xScr  = Math.max(P.xScr, P.xLens + 4);
   syncSliders();
 
   const o = computeOptics();
 
   /* positions des chariots */
-  objGroup.position.x  = cm2x(P.xObj);
+  objGroup.position.x  = cm2x(OBJ_CM);
   lensGroup.position.x = cm2x(P.xLens);
   scrGroup.position.x  = cm2x(P.xScr);
+
+  /* image virtuelle fantôme (vue "à travers la lentille") */
+  if (o.virtual && o.OAp >= -80) {
+    const size = Math.abs(o.gamma) * P.hObj / 100 * (256 / 240);
+    ghostImg.scale.set(size, size, 1);
+    ghostImg.position.set(cm2x(o.xImg), AXIS_H, 0);
+    ghostImg.visible = true;
+  } else {
+    ghostImg.visible = false;
+  }
 
   /* bombé de la lentille selon f' (purement visuel) */
   lensGlass.scale.x = Math.min(0.45, Math.max(0.10, 0.22 * Math.pow(10 / P.f, 0.8)));
@@ -635,8 +678,8 @@ function updateSim() {
 
   /* lecture */
   const oap = o.infinite ? '∞' : fr(o.OAp) + ' cm';
-  const gam = o.infinite ? '—' : fr(o.gamma, 2);
-  valsEl.textContent = `OA = ${fr(o.OA)} cm · OA′ = ${oap} · γ = ${gam}`;
+  const apbp = o.infinite ? '—' : frU(Math.abs(o.gamma) * P.hObj) + ' cm';
+  valsEl.textContent = `OA = ${fr(o.OA)} cm · OA′ = ${oap} · AB = ${frU(P.hObj)} cm · A′B′ = ${apbp}`;
   if (o.infinite) {
     setStatus('virt', 'Objet dans le plan focal : image à l’infini');
   } else if (o.virtual) {
@@ -644,7 +687,7 @@ function updateSim() {
   } else if (o.sharp) {
     setStatus('ok', 'Image nette ✓');
   } else {
-    setStatus('warn', `Image floue — écran nette à ${frU(o.xImg)} cm`);
+    setStatus('warn', 'Image floue — déplacez l’écran');
   }
 }
 function setStatus(cls, txt) {
@@ -652,7 +695,6 @@ function setStatus(cls, txt) {
   statusEl.textContent = txt;
 }
 function syncSliders() {
-  $('sObj').value = P.xObj;   $('oObj').textContent  = frU(P.xObj) + ' cm';
   $('sLens').value = P.xLens; $('oLens').textContent = frU(P.xLens) + ' cm';
   $('sScr').value = P.xScr;   $('oScr').textContent  = frU(P.xScr) + ' cm';
   $('sF').value = P.f;        $('oF').textContent    = frU(P.f, 0) + ' cm';
@@ -660,7 +702,6 @@ function syncSliders() {
 }
 
 /* ---------- écouteurs UI ---------- */
-$('sObj').addEventListener('input', e => { P.xObj = +e.target.value; updateSim(); });
 $('sLens').addEventListener('input', e => { P.xLens = +e.target.value; updateSim(); });
 $('sScr').addEventListener('input', e => { P.xScr = +e.target.value; updateSim(); });
 $('sF').addEventListener('input', e => { P.f = +e.target.value; updateSim(); });
@@ -674,7 +715,7 @@ btnRays.addEventListener('click', () => {
 $('btnAuto').addEventListener('click', () => {
   const o = computeOptics();
   if (o.infinite || o.virtual) return;
-  if (o.xImg >= P.xLens + 4 && o.xImg <= 116) {
+  if (o.xImg >= P.xLens + 4 && o.xImg <= 146) {
     P.xScr = Math.round(o.xImg * 2) / 2;
     updateSim();
   } else {
