@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Banc optique — Réalité augmentée</title>
+<style>
+  :root {
+    --accent: #4fc3f7;
+    --glass: rgba(15, 20, 28, 0.78);
+    --border: rgba(255, 255, 255, 0.09);
+    --text: #eceff1;
+    --muted: #90a4ae;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+    color: var(--text);
+    background: radial-gradient(120% 100% at 50% 0%, #17202e 0%, #0c111a 70%);
+  }
+  canvas { display: block; }
+
+  /* ---------- Écran d'accueil ---------- */
+  #home {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 28px; text-align: center;
+    background: radial-gradient(120% 100% at 50% 0%, #17202e 0%, #0c111a 70%);
+  }
+  #home h1 { font-size: 1.55rem; font-weight: 650; letter-spacing: 0.2px; }
+  #home .sub { color: var(--muted); font-size: 0.95rem; max-width: 30rem; }
+  #home .card {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px 22px; max-width: 30rem; font-size: 0.9rem; line-height: 1.65;
+    color: #b8c4cc; text-align: left;
+  }
+  #home .card b { color: var(--text); font-weight: 600; }
+  button {
+    font: inherit; color: var(--text); cursor: pointer;
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 26px; background: rgba(255,255,255,0.06);
+    transition: background 0.15s;
+  }
+  button:active { background: rgba(255,255,255,0.14); }
+  #btnAR {
+    background: var(--accent); color: #06131c; font-weight: 650;
+    border: none; font-size: 1.05rem; padding: 14px 34px;
+  }
+  #btnAR:disabled { background: #37474f; color: #78909c; }
+  .ghost { color: var(--accent); }
+  #err {
+    display: none; max-width: 30rem; font-size: 0.85rem; color: #ff8a80;
+    background: rgba(255,82,82,0.08); border: 1px solid rgba(255,82,82,0.25);
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .version { color: #546e7a; font-size: 0.75rem; }
+
+  /* ---------- HUD session ---------- */
+  #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  #reticleHint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    pointer-events: none; text-align: center;
+  }
+  #reticleHint p {
+    font-size: 0.85rem; color: var(--text); background: var(--glass);
+    border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; line-height: 1.5;
+  }
+  #panel {
+    position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    width: min(96vw, 620px);
+    background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 10px 14px; display: none; flex-direction: column; gap: 8px;
+  }
+  #info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 0.82rem; }
+  #vals { font-variant-numeric: tabular-nums; color: #cfd8dc; letter-spacing: 0.2px; }
+  #status {
+    font-size: 0.78rem; padding: 3px 10px; border-radius: 999px; font-weight: 600;
+  }
+  #status.ok    { background: rgba(105,240,174,0.14); color: #69f0ae; }
+  #status.warn  { background: rgba(255,213,79,0.14);  color: #ffd54f; }
+  #status.virt  { background: rgba(179,136,255,0.16); color: #b388ff; }
+  #sliders {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px;
+    padding-top: 6px; border-top: 1px solid var(--border);
+  }
+  .sl { display: flex; flex-direction: column; gap: 1px; }
+  .sl label { font-size: 0.72rem; color: var(--muted); display: flex; justify-content: space-between; }
+  .sl label output { color: var(--text); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); height: 26px; }
+  #btnRow { display: flex; gap: 8px; }
+  #btnRow button {
+    flex: 1; padding: 9px 4px; font-size: 0.8rem; border-radius: 10px;
+    white-space: nowrap;
+  }
+  #btnRow button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); color: var(--accent); }
+  .badge {
+    position: absolute; right: 10px; bottom: 6px; opacity: 0.25; font-size: 0.7rem; color: #b0bec5;
+    pointer-events: none;
+  }
+  @media (max-width: 480px) {
+    #sliders { grid-template-columns: 1fr; }
+    #btnRow button { font-size: 0.72rem; padding: 9px 2px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="home">
+  <h1>Banc optique en réalité augmentée</h1>
+  <p class="sub">Formation d’une image par une lentille mince convergente — Seconde générale</p>
+  <div class="card">
+    Un banc optique complet posé sur votre table : <b>lampe</b>, <b>objet</b> (lettre F découpée),
+    <b>lentille convergente</b> et <b>écran</b>.<br><br>
+    • Déplacez l’objet, la lentille et l’écran, et observez l’image se former (nette ou floue).<br>
+    • Affichez les <b>trois rayons de construction</b> — invisible en vrai TP !<br>
+    • Modifiez la distance focale <i>f′</i> et la taille de l’objet.
+  </div>
+  <button id="btnAR">Lancer la RA ▶</button>
+  <button id="btn3D" class="ghost">Mode 3D interactif (sans RA)</button>
+  <div id="err"></div>
+  <div class="version">v1.0 — 2026-07-17 · Chrome Android + ARCore pour la RA</div>
+</div>
+
+<div id="hud" hidden>
+  <div id="reticleHint">
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="20" stroke="#4fc3f7" stroke-width="2" opacity="0.9"/>
+      <line x1="32" y1="4"  x2="32" y2="16" stroke="#4fc3f7" stroke-width="2"/>
+      <line x1="32" y1="48" x2="32" y2="60" stroke="#4fc3f7" stroke-width="2"/>
+      <line x1="4"  y1="32" x2="16" y2="32" stroke="#4fc3f7" stroke-width="2"/>
+      <line x1="48" y1="32" x2="60" y2="32" stroke="#4fc3f7" stroke-width="2"/>
+    </svg>
+    <p>Pointez une surface plane (table, bureau)…<br>puis touchez l’écran pour poser le banc optique.</p>
+  </div>
+
+  <div id="panel">
+    <div id="info">
+      <span id="vals"></span>
+      <span id="status"></span>
+    </div>
+    <div id="sliders" hidden>
+      <div class="sl">
+        <label>Position de l’objet <output id="oObj"></output></label>
+        <input type="range" id="sObj" min="10" max="50" step="0.5" value="30">
+      </div>
+      <div class="sl">
+        <label>Position de la lentille <output id="oLens"></output></label>
+        <input type="range" id="sLens" min="30" max="90" step="0.5" value="60">
+      </div>
+      <div class="sl">
+        <label>Position de l’écran <output id="oScr"></output></label>
+        <input type="range" id="sScr" min="35" max="116" step="0.5" value="75">
+      </div>
+      <div class="sl">
+        <label>Distance focale f′ <output id="oF"></output></label>
+        <input type="range" id="sF" min="5" max="30" step="1" value="10">
+      </div>
+      <div class="sl">
+        <label>Taille de l’objet (hauteur du F) <output id="oH"></output></label>
+        <input type="range" id="sH" min="1" max="4" step="0.5" value="2">
+      </div>
+    </div>
+    <div id="btnRow">
+      <button id="btnRays">☀ Rayons</button>
+      <button id="btnAuto">Écran auto</button>
+      <button id="btnSet">⚙ Réglages</button>
+      <button id="btnMove">✥ Déplacer</button>
+      <button id="btnQuit">✕ Quitter</button>
+    </div>
+  </div>
+  <div class="badge">v1.0</div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* =====================================================================
+   BANC OPTIQUE AR — v1.0
+   Optique géométrique rigoureuse (lentille mince, conditions de Gauss) :
+     · Relation de conjugaison de Descartes : 1/OA' − 1/OA = 1/f'
+     · Grandissement : γ = OA'/OA
+     · Sur l'écran (rayon passant par le centre optique O) :
+         taille du motif  = |OS/OA| × taille objet   (OS = position écran / lentille)
+         inversion si OS/OA < 0
+     · Flou de mise au point (tache de défocalisation, ouverture R) :
+         r_flou = R × |OS − OA'| / |OA'|
+   Axe du banc = axe x local. Coordonnées banc en cm : 0 → 120.
+   ===================================================================== */
+
+/* ---------- Constantes géométriques (mètres, échelle 1:1 avant scale) */
+const BENCH_CM   = 120;          // longueur graduée du banc
+const RAIL_LEN   = 1.24;
+const RAIL_H     = 0.03;
+const RAIL_D     = 0.07;
+const AXIS_H     = 0.15;         // hauteur de l'axe optique au-dessus du sol
+const SLIDE_CM   = 5.5;          // côté de la diapositive porte-objet (cm)
+const LENS_R     = 0.032;        // rayon de la lentille (m)
+const APERTURE_R = 2.0;          // rayon d'ouverture utile pour le flou (cm)
+const SCREEN_W   = 0.14, SCREEN_H = 0.16;   // écran (m)
+const SCR_W_CM   = 14,   SCR_H_CM = 16;
+const LAMP_CM    = 4;            // position fixe de la lampe
+const RAY_R      = 0.0012;       // rayon des cylindres "rayons"
+const SHARP_TOL  = 0.3;          // tolérance de netteté (cm)
+const DEFAULT_SCALE = 0.5;       // banc de 60 cm posé sur la table
+
+const cm2x = (cm) => (cm - BENCH_CM / 2) / 100;   // cm banc -> x local (m)
+
+/* ---------- Paramètres de la simulation (cm) ---------- */
+const P = { f: 10, xObj: 30, xLens: 60, xScr: 75, hObj: 2, rays: false };
+
+/* ---------- État session ---------- */
+let renderer = null, scene = null, camera = null;
+let modelGroup = null, reticle = null;
+let xrSession = null, hitTestSource = null, hitTestSourceRequested = false;
+let placed = false, moveMode = false;
+let mode = null;                       // 'ar' | '3d'
+
+/* références internes au modèle */
+let objGroup, lensGroup, scrGroup, raysGroup, marksGroup;
+let lensGlass, objTex, objCtx, scrTex, scrCtx;
+let imgMarker, imgLabel, labF, labFp, tickF, tickFp;
+
+/* interactions tactiles */
+let touchStartX = 0, touchStartY = 0, isDragging = false, isTwoFinger = false, lastTouchDist = 0;
+
+/* orbite (mode 3D) */
+const orb = { az: -0.55, el: 0.30, r: 1.05, target: new THREE.Vector3(0, 0.07, 0) };
+
+/* ---------- DOM ---------- */
+const $ = (id) => document.getElementById(id);
+const home = $('home'), hud = $('hud'), panel = $('panel'), errBox = $('err');
+const reticleHint = $('reticleHint'), slidersBox = $('sliders');
+const valsEl = $('vals'), statusEl = $('status');
+const btnMove = $('btnMove'), btnRays = $('btnRays');
+
+const fr = (n, d = 1) => (n >= 0 ? '+' : '−') + Math.abs(n).toFixed(d).replace('.', ',');
+const frU = (n, d = 1) => n.toFixed(d).replace('.', ',');
+
+/* =====================================================================
+   PHYSIQUE — relation de conjugaison
+   ===================================================================== */
+function computeOptics() {
+  const OA = P.xObj - P.xLens;                 // < 0 (objet réel)
+  const OS = P.xScr - P.xLens;                 // > 0
+  const inv = 1 / P.f + 1 / OA;
+  const infinite = Math.abs(inv) < 1e-9;
+  const OAp = infinite ? Infinity : 1 / inv;
+  const gamma = infinite ? Infinity : OAp / OA;
+  const virtual = !infinite && OAp < 0;
+  const scaleScr = OS / OA;                    // grandissement du motif sur l'écran
+  const blur = infinite ? APERTURE_R
+             : APERTURE_R * Math.abs(OS - OAp) / Math.abs(OAp);   // rayon de flou (cm)
+  const sharp = !infinite && !virtual && Math.abs(OS - OAp) < SHARP_TOL;
+  return { OA, OS, OAp, gamma, virtual, infinite, scaleScr, blur, sharp,
+           xImg: infinite ? Infinity : P.xLens + OAp };
+}
+
+/* =====================================================================
+   TEXTURES CANVAS
+   ===================================================================== */
+function drawFShape(ctx, h, color) {
+  // F majuscule "découpé", centré en (0,0), y vers le bas, hauteur h (px)
+  const w = h * 0.62, t = h * 0.19;
+  ctx.fillStyle = color;
+  ctx.fillRect(-w / 2, -h / 2, t, h);                       // barre verticale
+  ctx.fillRect(-w / 2, -h / 2, w, t);                       // barre du haut
+  ctx.fillRect(-w / 2, -h / 2 + h * 0.42, w * 0.72, t);     // barre du milieu
+}
+
+function makeObjectTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  objCtx = c.getContext('2d');
+  objTex = new THREE.CanvasTexture(c);
+  objTex.colorSpace = THREE.SRGBColorSpace;
+  drawObjectTexture();
+  return objTex;
+}
+function drawObjectTexture() {
+  const ctx = objCtx, S = 256;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.filter = 'none';
+  ctx.fillStyle = '#14171c';
+  ctx.fillRect(0, 0, S, S);
+  ctx.strokeStyle = '#2e353d';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, S - 10, S - 10);
+  // F lumineux (rétro-éclairé par la lampe), hauteur = hObj / côté diapo
+  const hPx = (P.hObj / SLIDE_CM) * S;
+  ctx.translate(S / 2, S / 2);
+  ctx.shadowColor = 'rgba(255, 236, 170, 0.9)';
+  ctx.shadowBlur = 16;
+  drawFShape(ctx, hPx, '#fff6da');
+  ctx.restore();
+  objTex.needsUpdate = true;
+}
+
+function makeScreenTexture() {
+  const c = document.createElement('canvas');
+  c.width = 448; c.height = 512;              // 32 px / cm
+  scrCtx = c.getContext('2d');
+  scrTex = new THREE.CanvasTexture(c);
+  scrTex.colorSpace = THREE.SRGBColorSpace;
+  return scrTex;
+}
+function drawScreenTexture(o) {
+  const ctx = scrCtx, W = 448, H = 512, pxPerCm = W / SCR_W_CM;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#f2f0ea';                  // écran blanc
+  ctx.fillRect(0, 0, W, H);
+
+  const s = o.scaleScr;                       // grandissement du motif (signé)
+  const hPx = Math.abs(s) * P.hObj * pxPerCm; // hauteur du motif F (px)
+  if (hPx > 0.5 && isFinite(hPx)) {
+    const blurPx = Math.min(o.blur * pxPerCm, 90);
+    const alpha = Math.max(0.10, 1 / (1 + o.blur * 1.4));
+    ctx.translate(W / 2, H / 2);              // centre = axe optique
+    if (s < 0) ctx.rotate(Math.PI);           // image renversée
+    ctx.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = 'rgba(255, 233, 168, 0.55)';
+    ctx.shadowBlur = 8;
+    drawFShape(ctx, hPx, '#f7b733');
+  }
+  ctx.restore();
+  scrTex.needsUpdate = true;
+}
+
+function makeLabel(text, color = '#eceff1', height = 0.024) {
+  const fs = 56, pad = 12;
+  const c = document.createElement('canvas');
+  const m = c.getContext('2d');
+  m.font = `600 ${fs}px -apple-system, Segoe UI, Roboto, sans-serif`;
+  c.width = Math.ceil(m.measureText(text).width) + pad * 2;
+  c.height = fs + pad * 2;
+  const ctx = c.getContext('2d');
+  ctx.font = `600 ${fs}px -apple-system, Segoe UI, Roboto, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 8;
+  ctx.fillStyle = color;
+  ctx.fillText(text, c.width / 2, c.height / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(height * c.width / c.height, height, 1);
+  return sp;
+}
+
+function makeRulerTexture() {
+  const c = document.createElement('canvas');
+  c.width = 1920; c.height = 48;              // 16 px / cm sur 120 cm
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1b2027';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#c3ccd2';
+  ctx.font = '600 19px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  for (let cm = 0; cm <= BENCH_CM; cm++) {
+    const x = cm * 16;
+    const h = cm % 10 === 0 ? 20 : cm % 5 === 0 ? 14 : 8;
+    ctx.fillRect(x - 0.7, 0, 1.4, h);
+    if (cm % 10 === 0 && cm > 0 && cm < BENCH_CM) ctx.fillText(String(cm), x, 42);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/* =====================================================================
+   CONSTRUCTION DU BANC 3D
+   ===================================================================== */
+const matMetal  = new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.55, metalness: 0.45 });
+const matStem   = new THREE.MeshStandardMaterial({ color: 0x546069, roughness: 0.4, metalness: 0.7 });
+const rayMats   = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
+  new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.95 }));
+const rayDashMats = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
+  new THREE.LineDashedMaterial({ color: c, dashSize: 0.014, gapSize: 0.009, transparent: true, opacity: 0.7 }));
+
+function makeStand(group) {
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.045), matMetal);
+  base.position.y = RAIL_H + 0.01;
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, AXIS_H - RAIL_H - 0.02, 10), matStem);
+  stem.position.y = RAIL_H + 0.02 + (AXIS_H - RAIL_H - 0.02) / 2;
+  group.add(base, stem);
+}
+
+function buildBench() {
+  const g = new THREE.Group();
+
+  /* ombre douce */
+  const shC = document.createElement('canvas');
+  shC.width = 256; shC.height = 64;
+  const shX = shC.getContext('2d');
+  const grad = shX.createRadialGradient(128, 32, 4, 128, 32, 120);
+  grad.addColorStop(0, 'rgba(0,0,0,0.42)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  shX.fillStyle = grad; shX.fillRect(0, 0, 256, 64);
+  const shTex = new THREE.CanvasTexture(shC);
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.42, 0.34),
+    new THREE.MeshBasicMaterial({ map: shTex, transparent: true, depthWrite: false }));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.0006;
+  g.add(shadow);
+
+  /* rail + règle graduée */
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(RAIL_LEN, RAIL_H, RAIL_D), matMetal);
+  rail.position.y = RAIL_H / 2;
+  g.add(rail);
+  const ruler = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.20, 0.03),
+    new THREE.MeshBasicMaterial({ map: makeRulerTexture() }));
+  ruler.position.set(0, RAIL_H / 2, RAIL_D / 2 + 0.0006);
+  g.add(ruler);
+
+  /* axe optique (pointillés) */
+  const axGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.59, AXIS_H, 0), new THREE.Vector3(0.59, AXIS_H, 0)]);
+  const axis = new THREE.Line(axGeo, new THREE.LineDashedMaterial({
+    color: 0xb0bec5, dashSize: 0.012, gapSize: 0.012, transparent: true, opacity: 0.35 }));
+  axis.computeLineDistances();
+  g.add(axis);
+
+  /* lampe (fixe) */
+  const lamp = new THREE.Group();
+  makeStand(lamp);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.09, 24), matMetal);
+  body.rotation.z = Math.PI / 2;
+  body.position.y = AXIS_H;
+  const front = new THREE.Mesh(
+    new THREE.CircleGeometry(0.026, 24),
+    new THREE.MeshBasicMaterial({ color: 0xfff3d6 }));
+  front.position.set(0.0455, AXIS_H, 0);
+  front.rotation.y = Math.PI / 2;
+  const glow = makeLabel('●', 'rgba(255,240,200,0.55)', 0.05);
+  glow.position.set(0.05, AXIS_H, 0);
+  lamp.add(body, front, glow);
+  const lampLab = makeLabel('lampe', '#90a4ae', 0.02);
+  lampLab.position.set(0, AXIS_H + 0.085, 0);
+  lamp.add(lampLab);
+  lamp.position.x = cm2x(LAMP_CM);
+  g.add(lamp);
+  const light = new THREE.PointLight(0xffe8c0, 0.5, 0.8);
+  light.position.set(cm2x(LAMP_CM) + 0.05, AXIS_H, 0);
+  g.add(light);
+
+  /* objet : diapositive avec F découpé */
+  objGroup = new THREE.Group();
+  makeStand(objGroup);
+  const slide = new THREE.Mesh(
+    new THREE.PlaneGeometry(SLIDE_CM / 100, SLIDE_CM / 100),
+    new THREE.MeshBasicMaterial({ map: makeObjectTexture(), side: THREE.DoubleSide }));
+  slide.rotation.y = -Math.PI / 2;   // face à la lentille (+x)
+  slide.position.y = AXIS_H;
+  objGroup.add(slide);
+  const objLab = makeLabel('objet', '#eceff1', 0.022);
+  objLab.position.set(0, AXIS_H + 0.075, 0);
+  objGroup.add(objLab);
+  g.add(objGroup);
+
+  /* lentille mince convergente */
+  lensGroup = new THREE.Group();
+  makeStand(lensGroup);
+  lensGlass = new THREE.Mesh(
+    new THREE.SphereGeometry(LENS_R, 32, 24),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xbfe3ff, transparent: true, opacity: 0.30,
+      roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
+  lensGlass.position.y = AXIS_H;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(LENS_R + 0.002, 0.0035, 10, 40), matStem);
+  ring.rotation.y = Math.PI / 2;
+  ring.position.y = AXIS_H;
+  lensGroup.add(lensGlass, ring);
+  const lensLab = makeLabel('lentille convergente', '#eceff1', 0.022);
+  lensLab.position.set(0, AXIS_H + 0.085, 0);
+  lensGroup.add(lensLab);
+  g.add(lensGroup);
+
+  /* écran */
+  scrGroup = new THREE.Group();
+  makeStand(scrGroup);
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry(SCREEN_W, SCREEN_H),
+    new THREE.MeshStandardMaterial({ color: 0xf4f3ee, roughness: 0.9, side: THREE.DoubleSide }));
+  board.rotation.y = -Math.PI / 2;
+  board.position.y = AXIS_H;
+  const imgPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(SCREEN_W, SCREEN_H),
+    new THREE.MeshBasicMaterial({ map: makeScreenTexture(), transparent: false,
+      side: THREE.DoubleSide, toneMapped: false }));
+  imgPlane.rotation.y = -Math.PI / 2;
+  imgPlane.position.set(-0.0008, AXIS_H, 0);
+  scrGroup.add(board, imgPlane);
+  const scrLab = makeLabel('écran', '#eceff1', 0.022);
+  scrLab.position.set(0, AXIS_H + 0.105, 0);
+  scrGroup.add(scrLab);
+  g.add(scrGroup);
+
+  /* foyers F et F' */
+  marksGroup = new THREE.Group();
+  const tickGeo = new THREE.CylinderGeometry(0.0008, 0.0008, 0.018, 6);
+  const tickMat = new THREE.MeshBasicMaterial({ color: 0x4fc3f7 });
+  tickF  = new THREE.Mesh(tickGeo, tickMat);
+  tickFp = new THREE.Mesh(tickGeo, tickMat);
+  labF  = makeLabel('F',  '#4fc3f7', 0.02);
+  labFp = makeLabel('F′', '#4fc3f7', 0.02);
+  marksGroup.add(tickF, tickFp, labF, labFp);
+  g.add(marksGroup);
+
+  /* rayons + marqueur d'image */
+  raysGroup = new THREE.Group();
+  g.add(raysGroup);
+  imgMarker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.0025, 12, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  imgLabel = makeLabel('image', '#ffffff', 0.018);
+  imgMarker.visible = imgLabel.visible = false;
+  g.add(imgMarker, imgLabel);
+
+  g.scale.setScalar(DEFAULT_SCALE);
+  return g;
+}
+
+/* =====================================================================
+   RAYONS DE CONSTRUCTION (3 rayons canoniques depuis B, sommet du F)
+   ===================================================================== */
+function pt(cmFromLens, yCm) {
+  // point en coordonnées locales banc (m) : x relatif à la lentille (cm), hauteur / axe (cm)
+  return new THREE.Vector3(cm2x(P.xLens + cmFromLens), AXIS_H + yCm / 100, 0);
+}
+function rayCyl(a, b, mat) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  if (len < 1e-5) return null;
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(RAY_R, RAY_R, len, 6, 1, true), mat);
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return mesh;
+}
+function dashLine(a, b, mat) {
+  const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+  const l = new THREE.Line(geo, mat);
+  l.computeLineDistances();
+  return l;
+}
+
+function rebuildRays(o) {
+  // vider (les matériaux sont partagés : on ne libère que les géométries)
+  for (let i = raysGroup.children.length - 1; i >= 0; i--) {
+    const c = raysGroup.children[i];
+    c.geometry.dispose();
+    raysGroup.remove(c);
+  }
+  imgMarker.visible = imgLabel.visible = false;
+  if (!P.rays) return;
+
+  const yB = P.hObj / 2;                        // B = sommet du F (cm)
+  const yImg = o.infinite ? NaN : o.gamma * yB; // hauteur de l'image de B (cm)
+
+  // hauteur d'incidence sur la lentille pour chaque rayon
+  const lensY = o.infinite ? [yB, 0] : [yB, 0, yImg];
+  // pente après la lentille
+  const slopes = lensY.map((y0, i) => {
+    if (!o.infinite) return (yImg - y0) / o.OAp;
+    return i === 0 ? -yB / P.f : yB / o.OA;     // objet dans le plan focal : émergents parallèles
+  });
+
+  lensY.forEach((y0, i) => {
+    const mat = rayMats[i];
+    // segment objet -> lentille
+    const s1 = rayCyl(pt(o.OA, yB), pt(0, y0), mat);
+    if (s1) raysGroup.add(s1);
+    // segment lentille -> écran
+    const yScr = y0 + slopes[i] * o.OS;
+    const s2 = rayCyl(pt(0, y0), pt(o.OS, yScr), mat);
+    if (s2) raysGroup.add(s2);
+    // image virtuelle : prolongements en pointillés vers B'
+    if (o.virtual) raysGroup.add(dashLine(pt(0, y0), pt(o.OAp, yImg), rayDashMats[i]));
+  });
+
+  // marqueur du point image B'
+  if (!o.infinite) {
+    const onBench = P.xLens + o.OAp > 0 && P.xLens + o.OAp < BENCH_CM;
+    const behindScreen = !o.virtual && o.OAp > o.OS;   // image au-delà de l'écran : rayons bloqués
+    if (onBench && !behindScreen) {
+      const p = pt(o.OAp, yImg);
+      imgMarker.position.copy(p);
+      imgLabel.position.copy(p).add(new THREE.Vector3(0, 0.022, 0));
+      imgMarker.visible = imgLabel.visible = true;
+      imgLabel.material.opacity = o.virtual ? 0.7 : 1;
+    }
+  }
+}
+
+/* =====================================================================
+   MISE À JOUR GLOBALE
+   ===================================================================== */
+function updateSim() {
+  /* contraintes géométriques */
+  P.xObj  = Math.min(P.xObj, P.xLens - 8);
+  P.xLens = Math.max(Math.min(P.xLens, P.xScr - 4), P.xObj + 8);
+  P.xScr  = Math.max(P.xScr, P.xLens + 4);
+  syncSliders();
+
+  const o = computeOptics();
+
+  /* positions des chariots */
+  objGroup.position.x  = cm2x(P.xObj);
+  lensGroup.position.x = cm2x(P.xLens);
+  scrGroup.position.x  = cm2x(P.xScr);
+
+  /* bombé de la lentille selon f' (purement visuel) */
+  lensGlass.scale.x = Math.min(0.45, Math.max(0.10, 0.22 * Math.pow(10 / P.f, 0.8)));
+
+  /* foyers */
+  tickF.position.set(cm2x(P.xLens - P.f), AXIS_H, 0);
+  tickFp.position.set(cm2x(P.xLens + P.f), AXIS_H, 0);
+  labF.position.set(cm2x(P.xLens - P.f), AXIS_H - 0.024, 0);
+  labFp.position.set(cm2x(P.xLens + P.f), AXIS_H - 0.024, 0);
+
+  /* textures */
+  drawObjectTexture();
+  drawScreenTexture(o);
+  rebuildRays(o);
+
+  /* lecture */
+  const oap = o.infinite ? '∞' : fr(o.OAp) + ' cm';
+  const gam = o.infinite ? '—' : fr(o.gamma, 2);
+  valsEl.textContent = `OA = ${fr(o.OA)} cm · OA′ = ${oap} · γ = ${gam}`;
+  if (o.infinite) {
+    setStatus('virt', 'Objet dans le plan focal : image à l’infini');
+  } else if (o.virtual) {
+    setStatus('virt', 'Image virtuelle : rien de net sur l’écran');
+  } else if (o.sharp) {
+    setStatus('ok', 'Image nette ✓');
+  } else {
+    setStatus('warn', `Image floue — écran nette à ${frU(o.xImg)} cm`);
+  }
+}
+function setStatus(cls, txt) {
+  statusEl.className = cls;
+  statusEl.textContent = txt;
+}
+function syncSliders() {
+  $('sObj').value = P.xObj;   $('oObj').textContent  = frU(P.xObj) + ' cm';
+  $('sLens').value = P.xLens; $('oLens').textContent = frU(P.xLens) + ' cm';
+  $('sScr').value = P.xScr;   $('oScr').textContent  = frU(P.xScr) + ' cm';
+  $('sF').value = P.f;        $('oF').textContent    = frU(P.f, 0) + ' cm';
+  $('sH').value = P.hObj;     $('oH').textContent    = frU(P.hObj) + ' cm';
+}
+
+/* ---------- écouteurs UI ---------- */
+$('sObj').addEventListener('input', e => { P.xObj = +e.target.value; updateSim(); });
+$('sLens').addEventListener('input', e => { P.xLens = +e.target.value; updateSim(); });
+$('sScr').addEventListener('input', e => { P.xScr = +e.target.value; updateSim(); });
+$('sF').addEventListener('input', e => { P.f = +e.target.value; updateSim(); });
+$('sH').addEventListener('input', e => { P.hObj = +e.target.value; updateSim(); });
+
+btnRays.addEventListener('click', () => {
+  P.rays = !P.rays;
+  btnRays.classList.toggle('active', P.rays);
+  updateSim();
+});
+$('btnAuto').addEventListener('click', () => {
+  const o = computeOptics();
+  if (o.infinite || o.virtual) return;
+  if (o.xImg >= P.xLens + 4 && o.xImg <= 116) {
+    P.xScr = Math.round(o.xImg * 2) / 2;
+    updateSim();
+  } else {
+    setStatus('warn', 'Image nette hors du banc !');
+  }
+});
+$('btnSet').addEventListener('click', () => {
+  slidersBox.hidden = !slidersBox.hidden;
+  $('btnSet').classList.toggle('active', !slidersBox.hidden);
+});
+btnMove.addEventListener('click', () => {
+  if (mode !== 'ar' || !placed) return;
+  moveMode = !moveMode;
+  btnMove.classList.toggle('active', moveMode);
+  reticleHint.style.display = moveMode ? 'flex' : 'none';
+  if (!moveMode) reticle.visible = false;
+});
+$('btnQuit').addEventListener('click', () => {
+  if (mode === 'ar' && xrSession) xrSession.end();
+  else if (mode === '3d') teardown();
+});
+
+/* =====================================================================
+   SCÈNE / RENDU
+   ===================================================================== */
+function buildScene() {
+  scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x3a4653, 1.25));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.6);
+  dir.position.set(0.8, 1.6, 1.0);
+  scene.add(dir);
+
+  modelGroup = buildBench();
+  scene.add(modelGroup);
+
+  camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 40);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+  renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+  renderer.domElement.addEventListener('touchend', onTouchEnd, { passive: false });
+  renderer.domElement.addEventListener('mousedown', onMouseDown);
+  renderer.domElement.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+  renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+}
+
+function onResize() {
+  if (!renderer || mode === 'ar') return;
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+window.addEventListener('resize', onResize);
+
+/* =====================================================================
+   MODE AR (WebXR hit-test)
+   ===================================================================== */
+async function startAR() {
+  errBox.style.display = 'none';
+  try {
+    xrSession = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay', 'light-estimation'],
+      domOverlay: { root: document.body }
+    });
+  } catch (e) {
+    errBox.textContent = 'Impossible de démarrer la session AR : ' + e.message +
+      ' — Vérifiez que vous utilisez Chrome sur Android avec ARCore installé.';
+    errBox.style.display = 'block';
+    return;
+  }
+  mode = 'ar';
+  buildScene();
+  modelGroup.visible = false;
+
+  /* réticule 3D */
+  const rGeo = new THREE.RingGeometry(0.05, 0.06, 40);
+  rGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+  reticle = new THREE.Mesh(rGeo,
+    new THREE.MeshBasicMaterial({ color: 0x4fc3f7, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+  reticle.matrixAutoUpdate = false;
+  reticle.visible = false;
+  scene.add(reticle);
+
+  renderer.xr.enabled = true;
+  renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(xrSession);
+  xrSession.addEventListener('end', onSessionEnd);
+
+  home.hidden = true;
+  hud.hidden = false;
+  panel.style.display = 'none';
+  reticleHint.style.display = 'flex';
+  document.body.style.background = 'transparent';
+
+  renderer.setAnimationLoop(onXRFrame);
+}
+
+function onXRFrame(t, frame) {
+  const session = renderer.xr.getSession();
+  if (!session || !frame) return;
+
+  if (!hitTestSourceRequested) {
+    session.requestReferenceSpace('viewer').then(viewerSpace => {
+      session.requestHitTestSource({ space: viewerSpace }).then(source => {
+        hitTestSource = source;
+      });
+    });
+    hitTestSourceRequested = true;
+  }
+
+  if (hitTestSource && (!placed || moveMode)) {
+    const results = frame.getHitTestResults(hitTestSource);
+    if (results.length > 0) {
+      reticle.visible = true;
+      reticle.matrix.fromArray(results[0].getPose(renderer.xr.getReferenceSpace()).transform.matrix);
+    } else {
+      reticle.visible = false;
+    }
+  }
+  renderer.render(scene, camera);
+}
+
+function placeModel() {
+  if (!reticle.visible) return;               // pas de surface détectée : on attend
+  const pos = new THREE.Vector3();
+  reticle.matrix.decompose(pos, new THREE.Quaternion(), new THREE.Vector3());
+  // origine du groupe = dessous du rail : le banc se pose SUR la surface (Y_LIFT = 0)
+  modelGroup.position.copy(pos);
+  // orienter le banc face à l'utilisateur
+  const cam = new THREE.Vector3();
+  camera.getWorldPosition(cam);
+  modelGroup.rotation.y = Math.atan2(cam.x - pos.x, cam.z - pos.z);  // banc vu de côté, règle face à l'utilisateur
+  modelGroup.visible = true;
+  placed = true;
+  moveMode = false;
+  btnMove.classList.remove('active');
+  reticle.visible = false;
+  reticleHint.style.display = 'none';
+  panel.style.display = 'flex';
+  updateSim();
+}
+
+function onSessionEnd() {
+  xrSession = null;
+  hitTestSource = null;
+  hitTestSourceRequested = false;
+  teardown();
+}
+
+/* =====================================================================
+   MODE 3D (sans AR)
+   ===================================================================== */
+function start3D() {
+  mode = '3d';
+  buildScene();
+  placed = true;
+  applyOrbit();
+
+  home.hidden = true;
+  hud.hidden = false;
+  reticleHint.style.display = 'none';
+  panel.style.display = 'flex';
+  btnMove.style.display = 'none';
+  updateSim();
+
+  renderer.setAnimationLoop(() => renderer.render(scene, camera));
+}
+function applyOrbit() {
+  orb.el = Math.max(0.05, Math.min(1.35, orb.el));
+  orb.r = Math.max(0.3, Math.min(3.2, orb.r));
+  camera.position.set(
+    orb.target.x + orb.r * Math.cos(orb.el) * Math.sin(orb.az),
+    orb.target.y + orb.r * Math.sin(orb.el),
+    orb.target.z + orb.r * Math.cos(orb.el) * Math.cos(orb.az));
+  camera.lookAt(orb.target);
+}
+
+/* =====================================================================
+   INTERACTIONS TACTILES / SOURIS
+   ===================================================================== */
+function onTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    isDragging = true; isTwoFinger = false;
+    if (mode === 'ar' && (!placed || moveMode)) { placeModel(); return; }
+  } else if (e.touches.length === 2) {
+    isTwoFinger = true;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+  }
+}
+function onTouchMove(e) {
+  e.preventDefault();
+  if (!modelGroup || moveMode) return;
+  if (e.touches.length === 1 && isDragging && !isTwoFinger) {
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+    if (mode === 'ar') {
+      modelGroup.rotation.y += dx * 0.006;      // rotation horizontale uniquement (banc posé)
+    } else {
+      orb.az -= dx * 0.006;
+      orb.el += dy * 0.005;
+      applyOrbit();
+    }
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (lastTouchDist > 0) {
+      if (mode === 'ar') {
+        const s = modelGroup.scale.x * (dist / lastTouchDist);
+        modelGroup.scale.setScalar(Math.max(0.15, Math.min(4, s)));
+      } else {
+        orb.r /= (dist / lastTouchDist);
+        applyOrbit();
+      }
+    }
+    lastTouchDist = dist;
+  }
+}
+function onTouchEnd(e) {
+  e.preventDefault();
+  if (e.touches.length === 0) { isDragging = false; isTwoFinger = false; }
+}
+let mouseDown = false;
+function onMouseDown(e) { mouseDown = true; touchStartX = e.clientX; touchStartY = e.clientY; }
+function onMouseMove(e) {
+  if (!mouseDown || mode !== '3d') return;
+  orb.az -= (e.clientX - touchStartX) * 0.006;
+  orb.el += (e.clientY - touchStartY) * 0.005;
+  touchStartX = e.clientX; touchStartY = e.clientY;
+  applyOrbit();
+}
+function onMouseUp() { mouseDown = false; }
+function onWheel(e) {
+  if (mode !== '3d') return;
+  e.preventDefault();
+  orb.r *= e.deltaY > 0 ? 1.08 : 0.93;
+  applyOrbit();
+}
+
+/* =====================================================================
+   NETTOYAGE
+   ===================================================================== */
+function teardown() {
+  placed = false;
+  moveMode = false;
+  modelGroup = null;
+  reticle = null;
+  scene = null;
+  if (renderer) {
+    renderer.setAnimationLoop(null);
+    renderer.domElement.remove();
+    renderer.dispose();
+    renderer = null;
+  }
+  mode = null;
+  hud.hidden = true;
+  panel.style.display = 'none';
+  btnMove.style.display = '';
+  btnMove.classList.remove('active');
+  home.hidden = false;
+  document.body.style.background = '';
+}
+
+/* =====================================================================
+   DÉMARRAGE
+   ===================================================================== */
+const btnAR = $('btnAR');
+if (navigator.xr) {
+  navigator.xr.isSessionSupported('immersive-ar').then(ok => {
+    if (!ok) disableAR();
+  }).catch(disableAR);
+} else {
+  disableAR();
+}
+function disableAR() {
+  btnAR.disabled = true;
+  btnAR.textContent = 'RA non disponible sur cet appareil';
+}
+btnAR.addEventListener('click', startAR);
+$('btn3D').addEventListener('click', start3D);
+syncSliders();
+</script>
+</body>
+</html>
