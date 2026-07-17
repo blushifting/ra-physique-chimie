@@ -87,7 +87,8 @@
 
   /* sélecteur type d'œil */
   #types { display: flex; gap: 6px; }
-  #types button { flex: 1; padding: 7px 4px; font-size: 0.78rem; border-radius: 9px; }
+  #types button { flex: 1 1 0; padding: 8px 4px; font-size: 0.78rem; border-radius: 9px;
+    white-space: normal; line-height: 1.15; }
   #types button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); color: var(--accent); }
 
   /* rangée distance objet + bouton infini (toujours visible) */
@@ -112,13 +113,15 @@
   #objRow button { flex: 1; padding: 5px 0; font-size: 1.1rem; border-radius: 9px; line-height: 1.3; }
   #objRow button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); }
 
-  #btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
-  #btnRow button { flex: 1; padding: 9px 4px; font-size: 0.78rem; border-radius: 10px; white-space: nowrap; min-width: 64px; }
+  #btnRow { display: flex; gap: 6px; flex-wrap: wrap; }
+  #btnRow button { flex: 1 1 auto; min-width: 88px; padding: 8px 6px; font-size: 0.76rem;
+    border-radius: 10px; white-space: normal; line-height: 1.18; }
   #btnRow button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); color: var(--accent); }
+  #btnRow button:disabled { opacity: 0.35; cursor: default; }
   .badge { position: absolute; right: 10px; bottom: 6px; opacity: 0.25; font-size: 0.7rem; color: #b0bec5; pointer-events: none; }
   @media (max-width: 500px) {
     #sliders { grid-template-columns: 1fr; }
-    #btnRow button { font-size: 0.72rem; padding: 9px 2px; }
+    #btnRow button { font-size: 0.72rem; padding: 8px 3px; min-width: 78px; }
   }
 </style>
 </head>
@@ -139,7 +142,7 @@
   <button id="btnAR">Lancer la RA ▶</button>
   <button id="btn3D" class="ghost">Mode 3D interactif (sans RA)</button>
   <div id="err"></div>
-  <div class="version">v2.0 — 2026-07-17 · modèle schématique · Chrome Android + ARCore pour la RA</div>
+  <div class="version">v2.1 — 2026-07-17 · modèle schématique · Chrome Android + ARCore pour la RA</div>
 </div>
 
 <div id="hud" hidden>
@@ -195,7 +198,7 @@
       </div>
     </div>
     <div id="btnRow">
-      <button id="btnAcc" class="active">Accommodation auto</button>
+      <button id="btnAcc" class="active">Accommod. auto</button>
       <button id="btnCorr">⌐ Verre correcteur</button>
       <button id="btnRays">☀ 3 rayons</button>
       <button id="btnView">⇄ Modèle réduit</button>
@@ -204,7 +207,7 @@
       <button id="btnQuit">✕ Quitter</button>
     </div>
   </div>
-  <div class="badge">v2.0</div>
+  <div class="badge">v2.1</div>
 </div>
 
 <script type="module">
@@ -266,7 +269,7 @@ let mode = null;
 
 /* références internes au modèle */
 let objGroup, infGroup, anatGroup, reducGroup, corrGroup, raysGroup, marksGroup;
-let lensMeshA, lensMeshR, irisMesh, diaMesh, retinaMesh, musTop, musBot;
+let lensMeshA, lensMeshR, irisMesh, diaMesh, retinaMesh, musTop, musBot, corrLens;
 let objCtx, objTex, retCtx, retTex, irisCtx, irisTex;
 let tickF, tickFp, labF, labFp, imgMarker, imgLabel;
 let axisLine, zoneBand, sPP, sPR, sInfLab;
@@ -451,8 +454,19 @@ function drawRetinaTexture(o) {
   ctx.filter = 'none'; ctx.globalAlpha = 1;
   ctx.clearRect(0, 0, S, S);
 
-  const bright = clamp(0.35 + P.pupil * 0.12, 0.4, 1);
-  const alpha = clamp(bright / (1 + o.blur * 3.0), 0.10, 1);
+  /* la pupille (1→6 mm) fait varier fortement la quantité de lumière reçue :
+     grande pupille = image lumineuse (mais plus floue), petite pupille = image
+     sombre (mais plus nette) — vrai compromis luminosité / profondeur de champ */
+  const bright = clamp(0.10 + (P.pupil - 1) / 5 * 0.90, 0.10, 1);
+  const alpha = clamp(bright / (1 + o.blur * 3.0), 0.05, 1);
+
+  /* halo de fond du fond d'œil, lui aussi plus ou moins éclairé */
+  const glow = clamp(bright * 0.28, 0.03, 0.28);
+  const bg = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.5);
+  bg.addColorStop(0, `rgba(255,236,190,${glow})`);
+  bg.addColorStop(1, 'rgba(255,236,190,0)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, S, S);
 
   if (P.inf) {
     /* point lumineux à l'infini : tache d'autant plus large que l'image est défocalisée */
@@ -495,20 +509,25 @@ function makeIrisTexture() {
   return irisTex;
 }
 function drawIrisTexture() {
-  const ctx = irisCtx, S = 256, R = S / 2;
+  const ctx = irisCtx, S = 256, R = S / 2, TWO_PI = Math.PI * 2;
   const pupPx = clamp((pupilRadiusM() / IRIS_R) * R, 6, R - 8);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
   ctx.clearRect(0, 0, S, S);
-  const grad = ctx.createRadialGradient(R, R, pupPx, R, R, R);
+
+  // 1) disque complet de l'iris (dégradé plein, sans trou)
+  const grad = ctx.createRadialGradient(R, R, pupPx * 0.6, R, R, R);
   grad.addColorStop(0, '#2e4a63');
   grad.addColorStop(0.5, '#4f7fa8');
   grad.addColorStop(0.88, '#39597a');
   grad.addColorStop(1, '#233a52');
-  ctx.beginPath();
-  ctx.arc(R, R, R - 1, 0, 7);
-  ctx.arc(R, R, pupPx, 0, 7, true);
   ctx.fillStyle = grad;
-  ctx.fill('evenodd');
+  ctx.beginPath();
+  ctx.arc(R, R, R - 1, 0, TWO_PI);
+  ctx.fill();
+
+  // 2) stries radiales
   ctx.save();
   ctx.translate(R, R);
   ctx.globalAlpha = 0.35;
@@ -522,9 +541,19 @@ function drawIrisTexture() {
     ctx.stroke();
   }
   ctx.restore();
+
+  // 3) pupille : trou parfaitement circulaire foré à l'emporte-pièce
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'destination-out';
   ctx.beginPath();
-  ctx.arc(R, R, pupPx + 1.5, 0, 7);
-  ctx.strokeStyle = 'rgba(5,10,16,0.75)';
+  ctx.arc(R, R, pupPx, 0, TWO_PI);
+  ctx.fill();
+
+  // 4) fin liseré sombre autour de la pupille
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.arc(R, R, pupPx + 1.5, 0, TWO_PI);
+  ctx.strokeStyle = 'rgba(5,10,16,0.8)';
   ctx.lineWidth = 3;
   ctx.stroke();
   irisTex.needsUpdate = true;
@@ -602,6 +631,21 @@ const rayDashMats = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
   new THREE.LineDashedMaterial({ color: c, dashSize: 0.012, gapSize: 0.008, transparent: true, opacity: 0.6 }));
 const MUS_COL_RELAX = new THREE.Color(0x8d6e63), MUS_COL_TENSE = new THREE.Color(0xe53935);
 
+/* lentille de révolution (surface de Descartes) — biconvexe si tCenter>tEdge,
+   biconcave si tCenter<tEdge. Axe optique = axe X après rotation. */
+function makeLensGeometry(R, tCenter, tEdge, seg = 28) {
+  const half = (r) => {
+    const c = Math.sqrt(Math.max(0, 1 - (r / R) * (r / R)));
+    return tEdge / 2 + (tCenter - tEdge) / 2 * c;
+  };
+  const pts = [];
+  for (let i = 0; i <= seg; i++) { const r = R * i / seg; pts.push(new THREE.Vector2(r, -half(r))); }
+  for (let i = seg; i >= 0; i--) { const r = R * i / seg; pts.push(new THREE.Vector2(r, +half(r))); }
+  const geo = new THREE.LatheGeometry(pts, 56);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function makeStand(group, x, topY) {
   const base = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.014, 0.032), matMetal);
   base.position.set(x, 0.007, 0);
@@ -653,8 +697,7 @@ function buildModel() {
   const objLab = makeLabel('objet', '#ffd27a', 0.020);
   objLab.position.set(0, AXIS_Y + 0.055, 0);
   objGroup.add(objLab);
-  makeStand(objGroup, 0, AXIS_Y - 0.030);
-  g.add(objGroup);
+  g.add(objGroup);   // objet lumineux flottant, sans support
 
   /* ---------- OBJET À L'INFINI (soleil symbolique) ---------- */
   infGroup = new THREE.Group();
@@ -800,17 +843,20 @@ function buildModel() {
   g.add(reducGroup);
 
   /* ---------- VERRE CORRECTEUR (commun aux deux vues) ---------- */
+  /* Vraie lentille : sa forme (bords épais / bords minces) laisse deviner
+     le type de correction — on ne nomme volontairement pas convergent/divergent. */
   corrGroup = new THREE.Group();
-  const corrGlass = new THREE.Mesh(
-    new THREE.SphereGeometry(0.028, 32, 24),
-    new THREE.MeshPhysicalMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.24,
-      roughness: 0.04, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
-  corrGlass.name = 'corrGlass';
-  corrGlass.position.y = AXIS_Y;
-  const corrRing = new THREE.Mesh(new THREE.TorusGeometry(0.029, 0.0025, 10, 40), matStem);
+  corrLens = new THREE.Mesh(
+    makeLensGeometry(0.024, 0.017, 0.004),         // forme par défaut, ajustée dans updateSim
+    new THREE.MeshPhysicalMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.32,
+      roughness: 0.03, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
+  corrLens.rotation.z = Math.PI / 2;               // axe de révolution -> axe optique X
+  corrLens.position.y = AXIS_Y;
+  corrLens.userData.shape = '';
+  const corrRing = new THREE.Mesh(new THREE.TorusGeometry(0.0258, 0.0022, 10, 44), matStem);
   corrRing.rotation.y = Math.PI / 2;
   corrRing.position.y = AXIS_Y;
-  corrGroup.add(corrGlass, corrRing);
+  corrGroup.add(corrLens, corrRing);
   const corrLab = makeLabel('verre correcteur', '#cfe8ff', 0.017);
   corrLab.position.set(0, AXIS_Y + 0.048, 0);
   corrGroup.add(corrLab);
@@ -991,6 +1037,18 @@ function updateSim() {
   objGroup.position.x = -cmX(P.d);
   corrGroup.visible = o.corr;
 
+  /* forme du verre correcteur selon le défaut (bords épais vs bords minces) */
+  if (o.corr) {
+    const shape = (P.type === 'hyper') ? 'convex' : 'concave';
+    if (corrLens.userData.shape !== shape) {
+      corrLens.geometry.dispose();
+      corrLens.geometry = (shape === 'convex')
+        ? makeLensGeometry(0.024, 0.017, 0.004)    // bords minces, centre épais
+        : makeLensGeometry(0.024, 0.004, 0.017);   // bords épais, centre mince
+      corrLens.userData.shape = shape;
+    }
+  }
+
   /* cristallin : plus convergent = plus bombé (les deux vues) */
   const bulge = clamp(0.30 * Math.pow(FMAX / o.f, 1.6), 0.16, 0.55);
   lensMeshA.scale.x = bulge;
@@ -1097,10 +1155,10 @@ function syncUI() {
   $('sP').value = P.pupil; $('oP').textContent = frU(P.pupil) + ' mm';
   $('slF').classList.toggle('disabled', P.auto);
   $('sF').disabled = P.auto;
-  btnAcc.textContent = P.auto ? 'Accommodation auto' : 'Accommodation manuelle';
+  btnAcc.textContent = P.auto ? 'Accommod. auto' : 'Accommod. manuelle';
   btnAcc.classList.toggle('active', P.auto);
   btnCorr.classList.toggle('active', P.corr);
-  btnCorr.style.display = (P.type === 'normal') ? 'none' : '';
+  btnCorr.disabled = (P.type === 'normal');   // reste en place, grisé (pas de saut de mise en page)
   btnRays.classList.toggle('active', P.rays);
   document.querySelectorAll('#objRow button').forEach(b =>
     b.classList.toggle('active', b.dataset.obj === P.obj));
