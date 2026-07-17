@@ -72,13 +72,14 @@
   }
   #panel {
     position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
-    width: min(97vw, 660px);
+    width: min(97vw, 680px);
     background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--border); border-radius: 16px;
     padding: 10px 14px; display: none; flex-direction: column; gap: 8px;
   }
-  #info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 0.8rem; }
+  #info { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 0.8rem; }
   #vals { font-variant-numeric: tabular-nums; color: #cfd8dc; letter-spacing: 0.2px; }
+  #range { font-variant-numeric: tabular-nums; color: #9be7c0; font-size: 0.78rem; }
   #status { font-size: 0.76rem; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
   #status.ok    { background: rgba(105,240,174,0.14); color: #69f0ae; }
   #status.warn  { background: rgba(255,213,79,0.14);  color: #ffd54f; }
@@ -89,6 +90,12 @@
   #types button { flex: 1; padding: 7px 4px; font-size: 0.78rem; border-radius: 9px; }
   #types button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); color: var(--accent); }
 
+  /* rangée distance objet + bouton infini (toujours visible) */
+  #drow { display: flex; align-items: flex-end; gap: 8px; }
+  #drow .sl { flex: 1; }
+  #bInf { width: 48px; padding: 6px 0; font-size: 1.05rem; border-radius: 9px; line-height: 1.2; }
+  #bInf.active { background: rgba(79,195,247,0.22); border-color: var(--accent); color: var(--accent); }
+
   #sliders {
     display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px;
     padding-top: 6px; border-top: 1px solid var(--border);
@@ -98,6 +105,13 @@
   .sl label { font-size: 0.72rem; color: var(--muted); display: flex; justify-content: space-between; }
   .sl label output { color: var(--text); font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; accent-color: var(--accent); height: 26px; }
+
+  /* choix de l'objet */
+  #objRow { display: flex; gap: 6px; align-items: center; grid-column: 1 / -1; padding-top: 2px; }
+  #objRow .lb { font-size: 0.72rem; color: var(--muted); margin-right: 2px; white-space: nowrap; }
+  #objRow button { flex: 1; padding: 5px 0; font-size: 1.1rem; border-radius: 9px; line-height: 1.3; }
+  #objRow button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); }
+
   #btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
   #btnRow button { flex: 1; padding: 9px 4px; font-size: 0.78rem; border-radius: 10px; white-space: nowrap; min-width: 64px; }
   #btnRow button.active { background: rgba(79,195,247,0.22); border-color: var(--accent); color: var(--accent); }
@@ -113,16 +127,19 @@
 <div id="home">
   <h1>Modèle de l'œil en réalité augmentée</h1>
   <div class="card">
-    Un œil réduit posé sur votre table : <b>objet</b> lumineux, <b>cristallin</b> (lentille convergente),
-    <b>pupille</b> (diaphragme) et <b>rétine</b> (écran au fond de l'œil).<br><br>
-    • Rapprochez ou éloignez l'objet et observez l'<b>accommodation</b> : le cristallin change de forme pour garder l'image nette sur la rétine.<br>
-    • Changez l'œil : <b>normal</b>, <b>myope</b> ou <b>hypermétrope</b>, et voyez l'image se former en avant ou en arrière de la rétine.<br>
-    • Ajoutez le <b>verre correcteur</b> et affichez les <b>3 rayons</b> de construction.
+    L'œil posé sur votre table, avec les distances du modèle en vraie grandeur :
+    <b>cristallin</b>, <b>pupille</b> et <b>rétine</b>.<br><br>
+    • Approchez ou éloignez l'objet — jusqu'à <b>l'infini ∞</b> — et observez
+    l'<b>accommodation</b> : le cristallin se bombe pour garder l'image nette sur la rétine.<br>
+    • Basculez vers le <b>modèle réduit</b> (diaphragme + lentille + écran) pour faire le lien avec le banc optique.<br>
+    • Œil <b>normal</b>, <b>myope</b> ou <b>hypermétrope</b> : le <b>domaine de vision nette</b>
+    (PP → PR) s'affiche au sol, et le <b>verre correcteur</b> le répare.<br>
+    • Choisissez l'objet (fleur, papillon, chat, fusée…) et affichez les <b>3 rayons</b> de construction.
   </div>
   <button id="btnAR">Lancer la RA ▶</button>
   <button id="btn3D" class="ghost">Mode 3D interactif (sans RA)</button>
   <div id="err"></div>
-  <div class="version">v1.0 — 2026-07-17 · modèle schématique · Chrome Android + ARCore pour la RA</div>
+  <div class="version">v2.0 — 2026-07-17 · modèle schématique · Chrome Android + ARCore pour la RA</div>
 </div>
 
 <div id="hud" hidden>
@@ -140,6 +157,7 @@
   <div id="panel">
     <div id="info">
       <span id="vals"></span>
+      <span id="range"></span>
       <span id="status"></span>
     </div>
     <div id="types">
@@ -147,14 +165,17 @@
       <button id="tMyope">Myope</button>
       <button id="tHyper">Hypermétrope</button>
     </div>
-    <div id="sliders" hidden>
+    <div id="drow">
       <div class="sl">
         <label>Distance de l'objet <output id="oD"></output></label>
-        <input type="range" id="sD" min="12" max="90" step="1" value="40">
+        <input type="range" id="sD" min="10" max="120" step="1" value="40">
       </div>
-      <div class="sl">
+      <button id="bInf" title="Objet à l'infini">∞</button>
+    </div>
+    <div id="sliders" hidden>
+      <div class="sl" id="slH">
         <label>Taille de l'objet <output id="oH"></output></label>
-        <input type="range" id="sH" min="1" max="6" step="0.5" value="3">
+        <input type="range" id="sH" min="1" max="4" step="0.5" value="3">
       </div>
       <div class="sl" id="slF">
         <label>Cristallin : focale f′ <output id="oF"></output></label>
@@ -164,62 +185,77 @@
         <label>Diamètre de la pupille <output id="oP"></output></label>
         <input type="range" id="sP" min="1" max="6" step="0.5" value="3">
       </div>
+      <div id="objRow">
+        <span class="lb">Objet :</span>
+        <button data-obj="fleur" class="active">🌷</button>
+        <button data-obj="papillon">🦋</button>
+        <button data-obj="chat">🐱</button>
+        <button data-obj="fusee">🚀</button>
+        <button data-obj="fleche">⬆</button>
+      </div>
     </div>
     <div id="btnRow">
       <button id="btnAcc" class="active">Accommodation auto</button>
       <button id="btnCorr">⌐ Verre correcteur</button>
       <button id="btnRays">☀ 3 rayons</button>
+      <button id="btnView">⇄ Modèle réduit</button>
       <button id="btnSet">⚙ Réglages</button>
       <button id="btnMove">✥ Déplacer</button>
       <button id="btnQuit">✕ Quitter</button>
     </div>
   </div>
-  <div class="badge">v1.0</div>
+  <div class="badge">v2.0</div>
 </div>
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 /* =====================================================================
-   MODÈLE DE L'ŒIL — v1.0  (niveau seconde générale)
+   MODÈLE DE L'ŒIL — v2.0  (niveau seconde générale)
    Optique géométrique rigoureuse — lentille mince, conditions de Gauss :
      · Conjugaison de Descartes :  1/OA′ − 1/OA = 1/f′   (O = centre du cristallin)
      · La RÉTINE est fixe, à la distance D du cristallin (D dépend du type d'œil).
-     · ACCOMMODATION : le cristallin ajuste sa focale f′ pour amener l'image
-       sur la rétine. Sa vergence varie dans une plage [FMIN ; FMAX] identique
-       pour tous les yeux (amétropie AXIALE : c'est la longueur de l'œil qui change).
-         - Œil relâché  → f′ = FMAX (le moins convergent)
-         - Accommodation max → f′ = FMIN (le plus convergent)
-     · DÉFAUTS :
-         - Myope  : œil TROP LONG (D grand) → au repos l'image d'un objet lointain
-                    se forme EN AVANT de la rétine → vision de loin floue.
-         - Hyper. : œil TROP COURT (D petit) → l'image se forme EN ARRIÈRE de la
-                    rétine → vision de près floue.
-     · CORRECTION : verre placé à CORR_E devant l'œil.
-         - Myope  : verre DIVERGENT  (f′ < 0)
-         - Hyper. : verre CONVERGENT (f′ > 0)
+     · ACCOMMODATION : le cristallin ajuste f′ ∈ [FMIN ; FMAX] pour amener
+       l'image sur la rétine (amétropie AXIALE : seule la longueur D change).
+     · DOMAINE DE VISION NETTE : PP (accommodation max, f′=FMIN) → PR (repos, f′=FMAX),
+       calculé numériquement pour l'œil nu OU corrigé, affiché au sol (bande verte).
+     · DÉFAUTS : myope = œil trop long (image en avant) ; hypermétrope = trop court.
+     · CORRECTION : verre à CORR_E devant l'œil (myope : divergent ; hyper : convergent).
        Système à deux lentilles : objet → verre → cristallin → rétine.
-     · PUPILLE : diaphragme d'ouverture. Rayon du cercle de diffusion sur la rétine
-                 r_flou = R_pupille × |OA′ − D| / |OA′|  (flou de défocalisation).
-   Unités internes : centimètres (modèle schématique cohérent, ≈ 2× l'œil réel).
+     · PUPILLE : diaphragme d'ouverture → cercle de diffusion sur la rétine
+       r_flou = R_pupille × |OA′ − D| / |OA′|.
+     · OBJET À L'INFINI : rayons incidents parallèles, image au plan focal.
+   Unités internes : centimètres (modèle schématique cohérent, ≈ 2,5× l'œil réel).
+   Nouveau en v2.0 : objet à l'infini, PP/PR + bande de vision nette, bascule
+   œil réel ↔ modèle réduit, objets imagés (fleur, papillon, chat, fusée),
+   iris texturé, muscles ciliaires, échelle de départ ×3.
    ===================================================================== */
 
 /* ---------- Paramètres physiques du modèle (cm) ---------- */
-const FMAX = 6.00, FMIN = 4.80;                 // focale cristallin : repos / accommodation max
+const FMAX = 6.00, FMIN = 4.80;                  // focale cristallin : repos / accommodation max
 const EYE  = { normal: 6.00, myope: 6.80, hyper: 5.40 };   // longueur O→rétine
-const FC   = { myope: -49.0, hyper: 56.0 };     // focale du verre correcteur
+const FC   = { myope: -49.0, hyper: 56.0 };      // focale du verre correcteur
 const CORR_E = 2.0;                              // verre placé 2 cm devant le cristallin
 const SHARP_TOL = 0.10;                          // tolérance de netteté sur la rétine (cm)
+const INF_D = 1e6;                               // « infini » numérique (cm)
 
 /* ---------- Constantes géométriques 3D (mètres) ---------- */
-const AXIS_Y = 0.10;             // hauteur de l'axe optique au-dessus de la table
-const DEFAULT_SCALE = 0.55;
-const RAY_R  = 0.0011;           // rayon des cylindres "rayons"
+const AXIS_Y  = 0.10;            // hauteur de l'axe optique au-dessus de la table
+const DEFAULT_SCALE = 1.6;       // ×3 par rapport à la v1 : le globe fait ~10 cm posé
+const RAY_R   = 0.0011;          // rayon des cylindres "rayons"
+const LENS_R  = 0.020;           // rayon du cristallin (m)
+const IRIS_R  = 0.026;           // rayon du disque iris (m)
+const RET_R   = 0.022;           // rayon de la rétine affichée (m)
+const FIELD_CM = 4.4;            // champ couvert par la texture rétine (cm modèle)
+const VIS_INF_X = -0.34;         // position visuelle du symbole « objet à l'infini » (m)
 const cmX = (cm) => cm / 100;    // cm modèle -> x local (m), cristallin O en x=0
 const cmY = (yCm) => AXIS_Y + yCm / 100;
 
 /* ---------- État de la simulation ---------- */
-const P = { type: 'normal', d: 40, h: 3, f: 6.0, pupil: 3, auto: true, corr: false, rays: false };
+const P = { type: 'normal', d: 40, h: 3, f: 6.0, pupil: 3, auto: true,
+            corr: false, rays: false, inf: false, view: 'anat', obj: 'fleur' };
+
+const OBJ_GLYPHS = { fleur: '🌷', papillon: '🦋', chat: '🐱', fusee: '🚀', fleche: null };
 
 /* ---------- État session ---------- */
 let renderer = null, scene = null, camera = null;
@@ -229,27 +265,29 @@ let placed = false, moveMode = false;
 let mode = null;
 
 /* références internes au modèle */
-let objGroup, lensMesh, irisMesh, retinaMesh, corrGroup, raysGroup, marksGroup;
-let objCtx, objTex, retCtx, retTex;
+let objGroup, infGroup, anatGroup, reducGroup, corrGroup, raysGroup, marksGroup;
+let lensMeshA, lensMeshR, irisMesh, diaMesh, retinaMesh, musTop, musBot;
+let objCtx, objTex, retCtx, retTex, irisCtx, irisTex;
 let tickF, tickFp, labF, labFp, imgMarker, imgLabel;
-let axisLine;
+let axisLine, zoneBand, sPP, sPR, sInfLab;
 
 /* interactions tactiles */
 let touchStartX = 0, touchStartY = 0, isDragging = false, isTwoFinger = false, lastTouchDist = 0;
 
 /* orbite (mode 3D) */
-const orb = { az: -0.62, el: 0.26, r: 0.85, target: new THREE.Vector3(-0.12, AXIS_Y, 0) };
+const orb = { az: -0.65, el: 0.30, r: 1.15, target: new THREE.Vector3(-0.18, 0.15, 0) };
 
 /* ---------- DOM ---------- */
 const $ = (id) => document.getElementById(id);
 const home = $('home'), hud = $('hud'), panel = $('panel'), errBox = $('err');
 const reticleHint = $('reticleHint'), slidersBox = $('sliders');
-const valsEl = $('vals'), statusEl = $('status');
-const btnMove = $('btnMove'), btnRays = $('btnRays'), btnCorr = $('btnCorr'), btnAcc = $('btnAcc');
+const valsEl = $('vals'), rangeEl = $('range'), statusEl = $('status');
+const btnMove = $('btnMove'), btnRays = $('btnRays'), btnCorr = $('btnCorr'),
+      btnAcc = $('btnAcc'), btnView = $('btnView'), bInf = $('bInf');
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const fr  = (n, d = 1) => (n >= 0 ? '+' : '−') + Math.abs(n).toFixed(d).replace('.', ',');
 const frU = (n, d = 1) => n.toFixed(d).replace('.', ',');
+const fmtD = (cm) => (!isFinite(cm) || cm > 250) ? '∞' : frU(cm, 0) + ' cm';
 
 /* =====================================================================
    PHYSIQUE
@@ -259,71 +297,48 @@ function conj(OA, f) {                 // renvoie OA′ à partir de OA et f′
   return Math.abs(inv) < 1e-9 ? Infinity : 1 / inv;
 }
 
-function computeEye() {
-  const D = EYE[P.type];
-  const OA = -P.d;                                  // objet réel à gauche
-  const corr = P.corr && P.type !== 'normal';
-  const fc = corr ? FC[P.type] : null;
-
-  /* focale du cristallin */
-  let f;
-  if (P.auto) {
-    // focale requise pour image nette sur la rétine (via le système complet)
-    f = solveAccommodation(D, fc);
-  } else {
-    f = P.f;
+/* position de l'image finale (rel. cristallin O) pour un objet à d (cm > 0) */
+function opticsOAp(d, f, fc) {
+  if (fc !== null) {
+    const OA1 = -d + CORR_E;                      // objet / verre
+    const x1 = -CORR_E + conj(OA1, fc);           // image intermédiaire (abs)
+    return conj(x1, f);                           // objet virtuel ou réel / cristallin
   }
-
-  /* position finale de l'image et grandissement */
-  let OAp, imgH, g;
-  const yB = P.h / 2;
-  if (corr) {
-    const OA1 = -P.d + CORR_E;                      // objet / verre
-    const OAp1 = conj(OA1, fc);
-    const x1 = -CORR_E + OAp1;                      // position absolue image intermédiaire
-    const OA2 = x1;                                 // objet / cristallin
-    OAp = conj(OA2, f);
-    g = (OAp1 / OA1) * (OAp / OA2);
-    imgH = g * yB;
-  } else {
-    OAp = conj(OA, f);
-    g = OAp / OA;
-    imgH = g * yB;
-  }
-
-  const infinite = !isFinite(OAp);
-  const sharp = !infinite && Math.abs(OAp - D) < SHARP_TOL;
-  const front = !infinite && OAp < D;               // image en avant de la rétine
-  /* empreinte du faisceau au centre de la rétine (rayon par le centre O) */
-  const footH = infinite ? 0 : imgH * D / OAp;      // hauteur sur la rétine (signée)
-  /* cercle de diffusion (flou) */
-  const apert = P.pupil * 0.12;                     // rayon d'ouverture (cm)
-  const blur = infinite ? apert
-             : apert * Math.abs(OAp - D) / Math.max(Math.abs(OAp), 1e-3);
-
-  return { D, OA, OAp, f, fc, corr, imgH, footH, sharp, front, infinite, blur, apert };
+  return conj(-d, f);
 }
 
-/* accommodation automatique : cherche f∈[FMIN,FMAX] amenant l'image au plus près
-   de la rétine ; renvoie la focale (bornée) réellement adoptée par l'œil */
-function solveAccommodation(D, fc) {
-  const yB = 0;
-  function imgErr(f) {
-    let OAp;
-    if (fc !== null) {
-      const OA1 = -P.d + CORR_E;
-      const x1 = -CORR_E + conj(OA1, fc);
-      OAp = conj(x1, f);
-    } else {
-      OAp = conj(-P.d, f);
-    }
-    return OAp - D;                                 // 0 => net sur rétine
+/* distance objet donnant une image nette sur la rétine pour une focale f donnée.
+   La branche physique (image réelle) donne err(d) décroissant de +∞ vers (f−D) :
+   on cherche le passage + → − le plus lointain, par balayage log puis dichotomie. */
+function distForFocal(D, f, fc) {
+  const err = (d) => {
+    const OAp = opticsOAp(d, f, fc);
+    return isFinite(OAp) ? OAp - D : 1e9;
+  };
+  const N = 400, lo = Math.log(3), hi = Math.log(INF_D);
+  let a = -1, b = -1, prevD = Math.exp(lo), prevE = err(prevD);
+  for (let i = 1; i <= N; i++) {
+    const d = Math.exp(lo + (hi - lo) * i / N);
+    const e = err(d);
+    if (prevE > 0 && e <= 0) { a = prevD; b = d; }   // on garde le dernier passage +→−
+    prevD = d; prevE = e;
   }
-  // imgErr est monotone en f sur la plage utile → recherche par bissection
+  if (a < 0) return prevE > -0.05 ? Infinity : NaN;  // pas de passage : net à l'infini (ou jamais)
+  for (let i = 0; i < 60; i++) {
+    const m = (a + b) / 2;
+    if (err(m) > 0) a = m; else b = m;
+  }
+  const d = (a + b) / 2;
+  return d > 300 ? Infinity : d;
+}
+
+/* accommodation automatique : f∈[FMIN,FMAX] amenant l'image au plus près de la rétine */
+function solveAccommodation(D, d, fc) {
+  const imgErr = (f) => opticsOAp(d, f, fc) - D;
   let lo = FMIN, hi = FMAX;
   const eLo = imgErr(lo), eHi = imgErr(hi);
-  if (eLo * eHi > 0) {                              // pas de solution dans la plage
-    return Math.abs(eLo) < Math.abs(eHi) ? FMIN : FMAX;   // accommodation saturée
+  if (eLo * eHi > 0) {                              // pas de solution : accommodation saturée
+    return Math.abs(eLo) < Math.abs(eHi) ? FMIN : FMAX;
   }
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
@@ -332,24 +347,72 @@ function solveAccommodation(D, fc) {
   return (lo + hi) / 2;
 }
 
+function computeEye() {
+  const D = EYE[P.type];
+  const d = P.inf ? INF_D : P.d;
+  const corr = P.corr && P.type !== 'normal';
+  const fc = corr ? FC[P.type] : null;
+
+  const f = P.auto ? solveAccommodation(D, d, fc) : P.f;
+  const satMin = f <= FMIN + 1e-4, satMax = f >= FMAX - 1e-4;
+
+  /* position finale de l'image et grandissement */
+  const yB = P.h / 2;
+  let OAp, imgH;
+  if (corr) {
+    const OA1 = -d + CORR_E;
+    const OAp1 = conj(OA1, fc);
+    const x1 = -CORR_E + OAp1;
+    OAp = conj(x1, f);
+    imgH = P.inf ? 0 : (OAp1 / OA1) * (OAp / x1) * yB;
+  } else {
+    OAp = conj(-d, f);
+    imgH = P.inf ? 0 : (OAp / -d) * yB;
+  }
+
+  const infinite = !isFinite(OAp);
+  const sharp = !infinite && Math.abs(OAp - D) < SHARP_TOL;
+  const front = !infinite && OAp < D;               // image en avant de la rétine
+  const footH = (infinite || P.inf) ? 0 : imgH * D / OAp;  // empreinte sur la rétine (signée)
+  const apert = P.pupil * 0.25;                     // rayon d'ouverture équivalent (cm, exagéré)
+  const blur = infinite ? apert
+             : apert * Math.abs(OAp - D) / Math.max(Math.abs(OAp), 1e-3);
+  const effort = clamp((FMAX - f) / (FMAX - FMIN), 0, 1);
+
+  /* domaine de vision nette (œil nu ou corrigé selon l'état courant) */
+  const PP = distForFocal(D, FMIN, fc);
+  const PR = distForFocal(D, FMAX, fc);
+
+  return { D, OAp, f, fc, corr, imgH, footH, sharp, front, infinite,
+           blur, apert, effort, satMin, satMax, PP, PR };
+}
+
 /* =====================================================================
    TEXTURES CANVAS
    ===================================================================== */
-function drawArrow(ctx, hPx, color, glow) {
-  // flèche verticale pointant vers le haut, centrée en (0,0)
-  const w = hPx * 0.30;                             // largeur de la pointe
-  const shaft = hPx * 0.14;                         // épaisseur de la tige
+function drawArrowShape(ctx, hPx, color, glow) {
+  const w = hPx * 0.30, shaft = hPx * 0.14;
   ctx.fillStyle = color;
   if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = hPx * 0.10; }
-  // tige
   ctx.fillRect(-shaft / 2, -hPx / 2 + w * 0.9, shaft, hPx - w * 0.9);
-  // pointe (triangle)
   ctx.beginPath();
   ctx.moveTo(0, -hPx / 2);
   ctx.lineTo(-w / 2, -hPx / 2 + w);
   ctx.lineTo(w / 2, -hPx / 2 + w);
   ctx.closePath();
   ctx.fill();
+}
+
+/* dessine l'objet courant (émoji ou flèche), centré en (0,0), hauteur hPx */
+function drawGlyph(ctx, hPx, kind) {
+  const glyph = OBJ_GLYPHS[kind];
+  if (!glyph) { drawArrowShape(ctx, hPx, '#ffd27a', 'rgba(255,210,120,0.95)'); return; }
+  ctx.font = `${Math.round(hPx)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(255,240,200,0.85)';
+  ctx.shadowBlur = hPx * 0.07;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(glyph, 0, hPx * 0.04);
 }
 
 function makeObjectTexture() {
@@ -364,11 +427,12 @@ function makeObjectTexture() {
 function drawObjectTexture() {
   const ctx = objCtx, S = 256;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.filter = 'none'; ctx.globalAlpha = 1;
   ctx.clearRect(0, 0, S, S);
-  const hPx = clamp((P.h / 7) * S, 24, S * 0.94);   // hauteur objet (cadre = 7 cm)
+  const hPx = clamp((P.h / 7) * S, 24, S * 0.94);   // cadre = 7 cm
   ctx.save();
   ctx.translate(S / 2, S / 2);
-  drawArrow(ctx, hPx, '#ffd27a', 'rgba(255,210,120,0.95)');
+  drawGlyph(ctx, hPx, P.obj);
   ctx.restore();
   objTex.needsUpdate = true;
 }
@@ -382,26 +446,103 @@ function makeRetinaTexture() {
   return retTex;
 }
 function drawRetinaTexture(o) {
-  const ctx = retCtx, S = 256, pxPerCm = S / 3.4;   // rétine ≈ 3,4 cm de champ
+  const ctx = retCtx, S = 256, pxPerCm = S / FIELD_CM;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.filter = 'none'; ctx.globalAlpha = 1;
   ctx.clearRect(0, 0, S, S);
 
-  const hPx = Math.abs(o.footH) * pxPerCm;
-  if (hPx > 0.5 && isFinite(hPx)) {
-    const blurPx = clamp(o.blur * pxPerCm, 0, 70);
-    // luminosité : grande pupille = plus lumineux ; image floue = plus diluée
-    const bright = clamp(0.35 + P.pupil * 0.12, 0.4, 1);
-    const alpha = clamp(bright / (1 + o.blur * 2.2), 0.12, 1);
-    ctx.save();
-    ctx.translate(S / 2, S / 2);
-    // footH signé : < 0 => image renversée (flèche vers le bas) ; > 0 => à l'endroit
-    if (o.footH < 0) ctx.rotate(Math.PI);
-    ctx.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
-    ctx.globalAlpha = alpha;
-    drawArrow(ctx, hPx, '#ffe08a', 'rgba(255,224,138,0.6)');
-    ctx.restore();
+  const bright = clamp(0.35 + P.pupil * 0.12, 0.4, 1);
+  const alpha = clamp(bright / (1 + o.blur * 3.0), 0.10, 1);
+
+  if (P.inf) {
+    /* point lumineux à l'infini : tache d'autant plus large que l'image est défocalisée */
+    const r = Math.max(2.5, o.blur * pxPerCm * 1.6);
+    const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, r);
+    g.addColorStop(0, `rgba(255,236,170,${alpha})`);
+    g.addColorStop(0.6, `rgba(255,224,138,${alpha * 0.8})`);
+    g.addColorStop(1, 'rgba(255,224,138,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(S / 2, S / 2, r, 0, 7); ctx.fill();
+  } else {
+    const hPx = Math.abs(o.footH) * pxPerCm;
+    if (hPx > 0.5 && isFinite(hPx)) {
+      const blurPx = clamp(o.blur * pxPerCm * 1.4, 0, 70);
+      ctx.save();
+      ctx.translate(S / 2, S / 2);
+      if (o.footH < 0) ctx.rotate(Math.PI);         // image renversée
+      ctx.filter = blurPx > 0.4 ? `blur(${blurPx.toFixed(1)}px)` : 'none';
+      ctx.globalAlpha = alpha;
+      drawGlyph(ctx, hPx, P.obj);
+      ctx.restore();
+    }
   }
   retTex.needsUpdate = true;
+}
+
+/* iris texturé : anneau bleu-gris strié, pupille transparente au centre */
+const STREAKS = (() => {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  return Array.from({ length: 90 }, () => ({ a: rnd() * Math.PI * 2, l: 0.35 + rnd() * 0.65, w: 0.8 + rnd() * 1.4 }));
+})();
+function makeIrisTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  irisCtx = c.getContext('2d');
+  irisTex = new THREE.CanvasTexture(c);
+  irisTex.colorSpace = THREE.SRGBColorSpace;
+  drawIrisTexture();
+  return irisTex;
+}
+function drawIrisTexture() {
+  const ctx = irisCtx, S = 256, R = S / 2;
+  const pupPx = clamp((pupilRadiusM() / IRIS_R) * R, 6, R - 8);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, S, S);
+  const grad = ctx.createRadialGradient(R, R, pupPx, R, R, R);
+  grad.addColorStop(0, '#2e4a63');
+  grad.addColorStop(0.5, '#4f7fa8');
+  grad.addColorStop(0.88, '#39597a');
+  grad.addColorStop(1, '#233a52');
+  ctx.beginPath();
+  ctx.arc(R, R, R - 1, 0, 7);
+  ctx.arc(R, R, pupPx, 0, 7, true);
+  ctx.fillStyle = grad;
+  ctx.fill('evenodd');
+  ctx.save();
+  ctx.translate(R, R);
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = '#a9c6de';
+  for (const st of STREAKS) {
+    ctx.lineWidth = st.w;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(st.a) * (pupPx + 2), Math.sin(st.a) * (pupPx + 2));
+    const rr = pupPx + (R - pupPx - 2) * st.l;
+    ctx.lineTo(Math.cos(st.a) * rr, Math.sin(st.a) * rr);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(R, R, pupPx + 1.5, 0, 7);
+  ctx.strokeStyle = 'rgba(5,10,16,0.75)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  irisTex.needsUpdate = true;
+}
+const pupilRadiusM = () => 0.004 + (P.pupil - 1) / 5 * 0.010;
+
+function makeGlyphSprite(glyph, sizeM) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.font = '100px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(glyph, 64, 70);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(sizeM, sizeM, 1);
+  return sp;
 }
 
 function makeLabel(text, color = '#eceff1', height = 0.020) {
@@ -425,6 +566,31 @@ function makeLabel(text, color = '#eceff1', height = 0.020) {
   return sp;
 }
 
+function makeRulerTexture() {
+  /* règle du modèle réduit : graduations cm de −3 à +8, zéro sous la lentille */
+  const c = document.createElement('canvas');
+  c.width = 960; c.height = 48;                    // 80 px / cm sur 12 cm
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1b2027';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#c3ccd2';
+  ctx.font = '600 21px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  for (let cm = -3; cm <= 8; cm++) {
+    const x = (cm + 3.5) * 80;
+    const major = cm % 1 === 0;
+    ctx.fillRect(x - 0.8, 0, 1.6, cm === 0 ? 22 : 16);
+    if (major) ctx.fillText(String(cm), x, 42);
+    for (let m = 1; m < 10 && cm < 8; m++) {
+      ctx.fillRect(x + m * 8 - 0.5, 0, 1, m === 5 ? 11 : 7);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 /* =====================================================================
    CONSTRUCTION DU MODÈLE 3D
    ===================================================================== */
@@ -434,19 +600,16 @@ const rayMats  = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
   new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.96 }));
 const rayDashMats = [0xff5252, 0xffd740, 0x40c4ff].map(c =>
   new THREE.LineDashedMaterial({ color: c, dashSize: 0.012, gapSize: 0.008, transparent: true, opacity: 0.6 }));
+const MUS_COL_RELAX = new THREE.Color(0x8d6e63), MUS_COL_TENSE = new THREE.Color(0xe53935);
 
 function makeStand(group, x, topY) {
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.014, 0.03), matMetal);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.014, 0.032), matMetal);
   base.position.set(x, 0.007, 0);
   const h = Math.max(0.005, topY - 0.014);
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, h, 10), matStem);
   stem.position.set(x, 0.014 + h / 2, 0);
   group.add(base, stem);
 }
-
-const REYE = () => EYE[P.type] / 100 * 0.5;         // rayon du globe (m)
-const IRIS_OUT = 0.022;                             // rayon extérieur de l'iris (m)
-const LENS_R   = 0.018;                             // rayon du cristallin (m)
 
 function buildModel() {
   const g = new THREE.Group();
@@ -457,18 +620,29 @@ function buildModel() {
   const grad = shX.createRadialGradient(128, 32, 4, 128, 32, 120);
   grad.addColorStop(0, 'rgba(0,0,0,0.40)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
   shX.fillStyle = grad; shX.fillRect(0, 0, 256, 64);
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.30),
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.28),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shC), transparent: true, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2;
-  shadow.position.set(-0.35, 0.0005, 0);
+  shadow.position.set(-0.25, 0.0005, 0);
   g.add(shadow);
 
-  /* axe optique en pointillés (objet -> rétine) */
+  /* axe optique en pointillés */
   axisLine = new THREE.Line(new THREE.BufferGeometry(),
     new THREE.LineDashedMaterial({ color: 0xb0bec5, dashSize: 0.010, gapSize: 0.010, transparent: true, opacity: 0.35 }));
   g.add(axisLine);
 
-  /* ---------- OBJET (flèche lumineuse) ---------- */
+  /* bande « domaine de vision nette » posée au sol + étiquettes PP / PR */
+  zoneBand = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.035),
+    new THREE.MeshBasicMaterial({ color: 0x69f0ae, transparent: true, opacity: 0.14, depthWrite: false }));
+  zoneBand.rotation.x = -Math.PI / 2;
+  zoneBand.position.y = 0.0012;
+  g.add(zoneBand);
+  sPP = makeLabel('PP', '#69f0ae', 0.014);
+  sPR = makeLabel('PR', '#69f0ae', 0.014);
+  sInfLab = makeLabel('→ ∞', '#69f0ae', 0.014);
+  g.add(sPP, sPR, sInfLab);
+
+  /* ---------- OBJET (fleur / papillon / chat / fusée / flèche) ---------- */
   objGroup = new THREE.Group();
   const objPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(0.07, 0.07),
@@ -479,82 +653,168 @@ function buildModel() {
   const objLab = makeLabel('objet', '#ffd27a', 0.020);
   objLab.position.set(0, AXIS_Y + 0.055, 0);
   objGroup.add(objLab);
-  makeStand(objGroup, 0, AXIS_Y - 0.028);
+  makeStand(objGroup, 0, AXIS_Y - 0.030);
   g.add(objGroup);
 
-  /* ---------- GLOBE OCULAIRE (sclère translucide) ---------- */
+  /* ---------- OBJET À L'INFINI (soleil symbolique) ---------- */
+  infGroup = new THREE.Group();
+  const sun = makeGlyphSprite('🌞', 0.055);
+  sun.position.set(0, AXIS_Y, 0);
+  infGroup.add(sun);
+  const infLab = makeLabel('objet à l’infini', '#ffd27a', 0.018);
+  infLab.position.set(0, AXIS_Y + 0.052, 0);
+  infGroup.add(infLab);
+  infGroup.position.x = VIS_INF_X;
+  infGroup.visible = false;
+  g.add(infGroup);
+
+  /* =====================  VUE ANATOMIQUE  ===================== */
+  anatGroup = new THREE.Group();
+
+  /* globe oculaire (sclère translucide) */
   const eyeBall = new THREE.Mesh(
     new THREE.SphereGeometry(1, 48, 32),
-    new THREE.MeshPhysicalMaterial({ color: 0xf3f6f7, transparent: true, opacity: 0.14,
-      roughness: 0.35, metalness: 0, side: THREE.FrontSide, depthWrite: false })); // scale via userData
+    new THREE.MeshPhysicalMaterial({ color: 0xf3f6f7, transparent: true, opacity: 0.16,
+      roughness: 0.3, metalness: 0, side: THREE.FrontSide, depthWrite: false }));
   eyeBall.name = 'eyeBall';
-  g.add(eyeBall);
+  anatGroup.add(eyeBall);
 
-  /* cornée : petite calotte transparente à l'avant */
+  /* cornée : calotte transparente à l'avant */
   const cornea = new THREE.Mesh(
-    new THREE.SphereGeometry(0.024, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.5),
+    new THREE.SphereGeometry(0.028, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.5),
     new THREE.MeshPhysicalMaterial({ color: 0xd6f0ff, transparent: true, opacity: 0.18,
       roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
-  cornea.rotation.z = -Math.PI / 2;                 // calotte tournée vers -x
-  cornea.position.set(-0.006, AXIS_Y, 0);
-  cornea.name = 'cornea';
-  g.add(cornea);
+  cornea.rotation.z = -Math.PI / 2;
+  cornea.position.set(-0.008, AXIS_Y, 0);
+  anatGroup.add(cornea);
 
-  /* ---------- IRIS + PUPILLE ---------- */
+  /* iris texturé + pupille (trou transparent) */
   irisMesh = new THREE.Mesh(
-    new THREE.RingGeometry(0.006, IRIS_OUT, 48),
-    new THREE.MeshStandardMaterial({ color: 0x5b7fa6, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide }));
-  irisMesh.rotation.y = Math.PI / 2;                // plan perpendiculaire à l'axe
-  irisMesh.position.set(-0.001, AXIS_Y, 0);
-  g.add(irisMesh);
+    new THREE.CircleGeometry(IRIS_R, 48),
+    new THREE.MeshBasicMaterial({ map: makeIrisTexture(), transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+  irisMesh.rotation.y = Math.PI / 2;
+  irisMesh.position.set(-0.002, AXIS_Y, 0);
+  anatGroup.add(irisMesh);
   const irisLab = makeLabel('pupille', '#9ec3e6', 0.018);
-  irisLab.position.set(-0.004, AXIS_Y + IRIS_OUT + 0.012, 0);
-  g.add(irisLab);
+  irisLab.position.set(-0.006, AXIS_Y + IRIS_R + 0.014, 0);
+  anatGroup.add(irisLab);
 
-  /* ---------- CRISTALLIN (lentille biconvexe convergente) ---------- */
-  lensMesh = new THREE.Mesh(
+  /* cristallin (biconvexe, se bombe avec l'accommodation) */
+  lensMeshA = new THREE.Mesh(
     new THREE.SphereGeometry(LENS_R, 32, 24),
     new THREE.MeshPhysicalMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.34,
       roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
-  lensMesh.position.set(0.006, AXIS_Y, 0);
-  g.add(lensMesh);
+  lensMeshA.position.set(0.006, AXIS_Y, 0);
+  anatGroup.add(lensMeshA);
   const lensLab = makeLabel('cristallin', '#bfe6ff', 0.019);
-  lensLab.position.set(0.006, AXIS_Y - IRIS_OUT - 0.014, 0);
-  g.add(lensLab);
+  lensLab.position.set(0.006, AXIS_Y - IRIS_R - 0.016, 0);
+  anatGroup.add(lensLab);
 
-  /* ---------- RÉTINE (écran au fond de l'œil) ---------- */
+  /* muscles ciliaires : se gonflent et rougissent avec l'effort d'accommodation */
+  const musGeo = new THREE.SphereGeometry(0.0075, 16, 12);
+  musTop = new THREE.Mesh(musGeo, new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.7 }));
+  musBot = new THREE.Mesh(musGeo.clone(), new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.7 }));
+  musTop.position.set(0.006, AXIS_Y + LENS_R + 0.005, 0);
+  musBot.position.set(0.006, AXIS_Y - LENS_R - 0.005, 0);
+  musTop.scale.set(1, 0.6, 1); musBot.scale.set(1, 0.6, 1);
+  anatGroup.add(musTop, musBot);
+
+  /* rétine (écran au fond de l'œil) + fond opaque */
   retinaMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.020, 40),
+    new THREE.CircleGeometry(RET_R, 40),
     new THREE.MeshBasicMaterial({ map: makeRetinaTexture(), transparent: true, side: THREE.DoubleSide, toneMapped: false }));
-  retinaMesh.rotation.y = -Math.PI / 2;             // face au cristallin
-  g.add(retinaMesh);
-  // support opaque de la rétine (fond de l'œil)
+  retinaMesh.rotation.y = -Math.PI / 2;
+  anatGroup.add(retinaMesh);
   const retBack = new THREE.Mesh(
-    new THREE.CircleGeometry(0.021, 40),
+    new THREE.CircleGeometry(RET_R + 0.001, 40),
     new THREE.MeshStandardMaterial({ color: 0xe8b98f, roughness: 0.9, side: THREE.DoubleSide }));
   retBack.rotation.y = -Math.PI / 2;
   retBack.name = 'retBack';
-  g.add(retBack);
+  anatGroup.add(retBack);
   const retLab = makeLabel('rétine', '#f0c8a0', 0.019);
   retLab.name = 'retLab';
-  g.add(retLab);
+  anatGroup.add(retLab);
 
-  /* ---------- VERRE CORRECTEUR (masqué par défaut) ---------- */
+  g.add(anatGroup);
+
+  /* =====================  VUE MODÈLE RÉDUIT  ===================== */
+  reducGroup = new THREE.Group();
+
+  /* petit banc gradué (zéro sous la lentille) */
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.022, 0.05), matMetal);
+  rail.position.set(0.025, 0.011, 0);
+  reducGroup.add(rail);
+  const ruler = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.12, 0.024),
+    new THREE.MeshBasicMaterial({ map: makeRulerTexture() }));
+  ruler.position.set(0.025, 0.011, 0.0256);
+  reducGroup.add(ruler);
+
+  /* diaphragme (pupille) */
+  diaMesh = new THREE.Mesh(
+    new THREE.RingGeometry(pupilRadiusM(), 0.030, 40),
+    new THREE.MeshStandardMaterial({ color: 0x1f242b, roughness: 0.6, metalness: 0.3, side: THREE.DoubleSide }));
+  diaMesh.rotation.y = Math.PI / 2;
+  diaMesh.position.set(-0.014, AXIS_Y, 0);
+  reducGroup.add(diaMesh);
+  makeStand(reducGroup, -0.014, AXIS_Y - 0.030);
+  const diaLab = makeLabel('diaphragme (pupille)', '#9ec3e6', 0.017);
+  diaLab.position.set(-0.014, AXIS_Y + 0.048, 0);
+  reducGroup.add(diaLab);
+
+  /* lentille convergente montée */
+  lensMeshR = new THREE.Mesh(
+    new THREE.SphereGeometry(LENS_R, 32, 24),
+    new THREE.MeshPhysicalMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.30,
+      roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
+  lensMeshR.position.set(0, AXIS_Y, 0);
+  const lensRing = new THREE.Mesh(new THREE.TorusGeometry(LENS_R + 0.002, 0.003, 10, 40), matStem);
+  lensRing.rotation.y = Math.PI / 2;
+  lensRing.position.set(0, AXIS_Y, 0);
+  reducGroup.add(lensMeshR, lensRing);
+  makeStand(reducGroup, 0, AXIS_Y - LENS_R - 0.007);
+  const lensRLab = makeLabel('lentille convergente (cristallin)', '#bfe6ff', 0.017);
+  lensRLab.position.set(0, AXIS_Y - LENS_R - 0.020, 0);
+  reducGroup.add(lensRLab);
+
+  /* écran (rétine) */
+  const scrGrp = new THREE.Group();
+  scrGrp.name = 'scrGrp';
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.05, 0.056),
+    new THREE.MeshStandardMaterial({ color: 0xf4f3ee, roughness: 0.9, side: THREE.DoubleSide }));
+  board.rotation.y = -Math.PI / 2;
+  board.position.set(0.0008, AXIS_Y, 0);
+  const scrImg = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.044, 0.044),
+    new THREE.MeshBasicMaterial({ map: retTex, transparent: true, side: THREE.DoubleSide, toneMapped: false }));
+  scrImg.rotation.y = -Math.PI / 2;
+  scrImg.position.set(0, AXIS_Y, 0);
+  scrGrp.add(board, scrImg);
+  makeStand(scrGrp, 0, AXIS_Y - 0.028);
+  const scrLab = makeLabel('écran (rétine)', '#f0c8a0', 0.017);
+  scrLab.position.set(0, AXIS_Y + 0.048, 0);
+  scrGrp.add(scrLab);
+  reducGroup.add(scrGrp);
+
+  g.add(reducGroup);
+
+  /* ---------- VERRE CORRECTEUR (commun aux deux vues) ---------- */
   corrGroup = new THREE.Group();
   const corrGlass = new THREE.Mesh(
-    new THREE.SphereGeometry(0.026, 32, 24),
+    new THREE.SphereGeometry(0.028, 32, 24),
     new THREE.MeshPhysicalMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.24,
       roughness: 0.04, metalness: 0, side: THREE.DoubleSide, depthWrite: false }));
   corrGlass.name = 'corrGlass';
   corrGlass.position.y = AXIS_Y;
-  const corrRing = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.0025, 10, 40), matStem);
+  const corrRing = new THREE.Mesh(new THREE.TorusGeometry(0.029, 0.0025, 10, 40), matStem);
   corrRing.rotation.y = Math.PI / 2;
   corrRing.position.y = AXIS_Y;
   corrGroup.add(corrGlass, corrRing);
   const corrLab = makeLabel('verre correcteur', '#cfe8ff', 0.017);
-  corrLab.position.set(0, AXIS_Y + 0.042, 0);
+  corrLab.position.set(0, AXIS_Y + 0.048, 0);
   corrGroup.add(corrLab);
-  makeStand(corrGroup, 0, AXIS_Y - 0.028);
+  makeStand(corrGroup, 0, AXIS_Y - 0.030);
   corrGroup.position.x = -cmX(CORR_E);
   corrGroup.visible = false;
   g.add(corrGroup);
@@ -577,34 +837,39 @@ function buildModel() {
   imgMarker = new THREE.Mesh(new THREE.SphereGeometry(0.0022, 12, 8),
     new THREE.MeshBasicMaterial({ color: 0xffffff }));
   imgLabel = makeLabel('image', '#ffffff', 0.016);
-  imgLabel.material.depthTest = false; imgLabel.renderOrder = 999;
   imgMarker.visible = imgLabel.visible = false;
   g.add(imgMarker, imgLabel);
 
   g.scale.setScalar(DEFAULT_SCALE);
   applyEyeGeometry(g);
+  applyView();
   return g;
 }
 
-/* place les éléments dépendant du type d'œil (longueur du globe / rétine) */
+/* place les éléments dépendant du type d'œil (longueur du globe / rétine / écran) */
 function applyEyeGeometry(g) {
   const D = EYE[P.type];
-  const rEye = REYE(), xc = cmX(D) * 0.5;           // centre du globe
+  const rEye = cmX(D) / 2;                          // rayon du globe (m)
   const eyeBall = g.getObjectByName('eyeBall');
   eyeBall.scale.setScalar(rEye);
-  eyeBall.position.set(xc, AXIS_Y, 0);
-  // rétine au pôle arrière
+  eyeBall.position.set(cmX(D) / 2, AXIS_Y, 0);
   retinaMesh.position.set(cmX(D) - 0.001, AXIS_Y, 0);
   g.getObjectByName('retBack').position.set(cmX(D), AXIS_Y, 0);
-  const retLab = g.getObjectByName('retLab');
-  retLab.position.set(cmX(D) + 0.004, AXIS_Y + 0.030, 0);
+  g.getObjectByName('retLab').position.set(cmX(D) + 0.004, AXIS_Y + rEye + 0.014, 0);
+  g.getObjectByName('scrGrp').position.x = cmX(D);
+}
+
+function applyView() {
+  if (!anatGroup) return;
+  anatGroup.visible = P.view === 'anat';
+  reducGroup.visible = P.view === 'reduc';
+  btnView.textContent = P.view === 'anat' ? '⇄ Modèle réduit' : '⇄ Œil réel';
 }
 
 /* =====================================================================
    RAYONS — tracé général par transfert (réfraction lentille mince)
    ===================================================================== */
 function refractTrace(xStartCm, y0cm, slope0, planesCm, xEndCm) {
-  // planesCm = [{x, f}] triés par x croissant ; renvoie points (Vector3 locaux)
   const pts = [new THREE.Vector3(cmX(xStartCm), cmY(y0cm), 0)];
   let x = xStartCm, y = y0cm, s = slope0;
   for (const pl of planesCm) {
@@ -659,46 +924,52 @@ function rebuildRays(o) {
   marksGroup.visible = P.rays;
   if (!P.rays) return;
 
-  const yB = P.h / 2;
   const D = o.D;
   const planes = o.corr ? [{ x: -CORR_E, f: o.fc }, { x: 0, f: o.f }] : [{ x: 0, f: o.f }];
 
-  let slopes;
-  if (o.corr) {
-    // 3 rayons canoniques par rapport au VERRE correcteur
-    const xF = -CORR_E - o.fc;                       // foyer objet du verre
-    slopes = [
-      0,                                             // parallèle à l'axe
-      (0 - yB) / (-CORR_E - (-P.d)),                 // vers le centre du verre
-      (0 - yB) / (xF - (-P.d))                       // par le foyer objet du verre
-    ];
+  /* définition des trois rayons incidents */
+  let defs;
+  if (P.inf) {
+    // objet à l'infini sur l'axe : faisceau incident parallèle à l'axe
+    defs = [1.5, 0.9, -1.2].map(h => ({ x0: VIS_INF_X * 100 + 1, y0: h, s0: 0 }));
   } else {
-    // 3 rayons canoniques par rapport au CRISTALLIN
-    slopes = [
-      0,                                             // parallèle -> passe par F′
-      (0 - yB) / (0 - (-P.d)),                        // par le centre O
-      (0 - yB) / (-o.f - (-P.d))                      // par le foyer F -> ressort parallèle
-    ];
+    const yB = P.h / 2, x0 = -P.d;
+    if (o.corr) {
+      // 3 rayons canoniques par rapport au VERRE correcteur
+      const xF = -CORR_E - o.fc;                     // foyer objet du verre
+      defs = [
+        { x0, y0: yB, s0: 0 },
+        { x0, y0: yB, s0: (0 - yB) / (-CORR_E - x0) },
+        { x0, y0: yB, s0: (0 - yB) / (xF - x0) }
+      ];
+    } else {
+      // 3 rayons canoniques par rapport au CRISTALLIN
+      defs = [
+        { x0, y0: yB, s0: 0 },                       // parallèle → passe par F′
+        { x0, y0: yB, s0: (0 - yB) / (0 - x0) },     // par le centre O
+        { x0, y0: yB, s0: (0 - yB) / (-o.f - x0) }   // par le foyer F → ressort parallèle
+      ];
+    }
   }
 
-  slopes.forEach((s0, i) => {
-    const pts = refractTrace(-P.d, yB, s0, planes, D);
+  defs.forEach((r, i) => {
+    const pts = refractTrace(r.x0, r.y0, r.s0, planes, D);
     polyline(pts, rayMats[i], true);
   });
 
-  /* marqueur du point image B′ */
+  /* marqueur du point image B′ (ou foyer image pour l'objet à l'infini) */
   if (!o.infinite) {
-    const xImg = o.OAp;
-    const inRange = xImg > -o.D * 3 && xImg < D + 2.2;
+    const xImg = o.OAp, yImg = P.inf ? 0 : o.imgH;
+    const inRange = xImg > -60 && xImg < D + 2.2;
     if (inRange) {
-      imgMarker.position.set(cmX(xImg), cmY(o.imgH), 0);
-      imgLabel.position.set(cmX(xImg), cmY(o.imgH) + 0.014, 0);
+      imgMarker.position.set(cmX(xImg), cmY(yImg), 0);
+      imgLabel.position.set(cmX(xImg), cmY(yImg) + 0.014, 0);
       imgMarker.visible = imgLabel.visible = true;
-      // prolongements pointillés si l'image est en arrière de la rétine
+      // prolongement pointillé si l'image se forme en arrière de la rétine
       if (xImg > D + 0.02) {
-        const pts = refractTrace(-P.d, yB, slopes[1], planes, D);
-        const last = pts[pts.length - 1];
-        raysGroup.add(dashLine(last, imgMarker.position.clone(), rayDashMats[1]));
+        const r = defs[1];
+        const pts = refractTrace(r.x0, r.y0, r.s0, planes, D);
+        raysGroup.add(dashLine(pts[pts.length - 1], imgMarker.position.clone(), rayDashMats[1]));
       }
     }
   }
@@ -709,30 +980,62 @@ function rebuildRays(o) {
    ===================================================================== */
 function updateSim() {
   const D = EYE[P.type];
-  P.d = clamp(P.d, 12, 90);
+  P.d = clamp(P.d, 10, 120);
 
   const o = computeEye();
   if (P.auto) P.f = o.f;                             // le curseur reflète l'accommodation
 
-  /* positions dépendant des paramètres */
+  /* objet fini ou infini */
+  objGroup.visible = !P.inf;
+  infGroup.visible = P.inf;
   objGroup.position.x = -cmX(P.d);
   corrGroup.visible = o.corr;
-  corrGroup.position.x = -cmX(CORR_E);
 
-  /* épaisseur du cristallin selon f′ (plus convergent = plus bombé) */
+  /* cristallin : plus convergent = plus bombé (les deux vues) */
   const bulge = clamp(0.30 * Math.pow(FMAX / o.f, 1.6), 0.16, 0.55);
-  lensMesh.scale.x = bulge;
+  lensMeshA.scale.x = bulge;
+  lensMeshR.scale.x = bulge;
 
-  /* ouverture visuelle de la pupille (rayon intérieur de l'iris) */
-  const pupR = 0.004 + (P.pupil - 1) / 5 * 0.010;   // 1 mm -> 0.004 m ; 6 mm -> 0.014 m
-  irisMesh.geometry.dispose();
-  irisMesh.geometry = new THREE.RingGeometry(pupR, IRIS_OUT, 48);
+  /* muscles ciliaires : gonflement + rougeur selon l'effort */
+  const e = o.effort;
+  const ms = 0.85 + 0.55 * e;
+  musTop.scale.set(ms, 0.6 * ms, ms);
+  musBot.scale.set(ms, 0.6 * ms, ms);
+  musTop.material.color.lerpColors(MUS_COL_RELAX, MUS_COL_TENSE, e);
+  musBot.material.color.lerpColors(MUS_COL_RELAX, MUS_COL_TENSE, e);
+
+  /* pupille : iris texturé (vue œil) + diaphragme (vue modèle) */
+  drawIrisTexture();
+  diaMesh.geometry.dispose();
+  diaMesh.geometry = new THREE.RingGeometry(pupilRadiusM(), 0.030, 40);
 
   /* axe optique */
+  const xLeft = P.inf ? VIS_INF_X - 0.02 : -cmX(P.d) - 0.01;
   axisLine.geometry.setFromPoints([
-    new THREE.Vector3(-cmX(P.d) - 0.01, AXIS_Y, 0),
-    new THREE.Vector3(cmX(D) + 0.005, AXIS_Y, 0)]);
+    new THREE.Vector3(xLeft, AXIS_Y, 0),
+    new THREE.Vector3(cmX(D) + 0.006, AXIS_Y, 0)]);
   axisLine.computeLineDistances();
+
+  /* bande de vision nette PP → PR au sol */
+  if (isFinite(o.PP)) {
+    const nearX = -cmX(o.PP);
+    const farCm = isFinite(o.PR) ? Math.min(o.PR, 125) : (P.inf ? 40 : 125);
+    const farX = -cmX(farCm);
+    zoneBand.visible = true;
+    zoneBand.scale.x = Math.max(Math.abs(farX - nearX), 1e-4);
+    zoneBand.position.x = (nearX + farX) / 2;
+    sPP.visible = true;
+    sPP.position.set(nearX, 0.013, 0.012);
+    if (isFinite(o.PR)) {
+      sPR.visible = true; sInfLab.visible = false;
+      sPR.position.set(farX, 0.013, 0.012);
+    } else {
+      sPR.visible = false; sInfLab.visible = true;
+      sInfLab.position.set(farX - 0.015, 0.013, 0.012);
+    }
+  } else {
+    zoneBand.visible = sPP.visible = sPR.visible = sInfLab.visible = false;
+  }
 
   /* foyers du cristallin */
   tickF.position.set(-cmX(o.f), AXIS_Y, 0);
@@ -747,20 +1050,35 @@ function updateSim() {
 
   /* lecture numérique */
   const imgTxt = o.infinite ? '∞' : frU(o.OAp) + ' cm';
-  valsEl.textContent =
-    `objet ${frU(P.d, 0)} cm · f′ ${frU(o.f)} cm · image à ${imgTxt} · rétine ${frU(D)} cm`;
+  const dTxt = P.inf ? '∞' : frU(P.d, 0) + ' cm';
+  const effTxt = P.auto ? ` (effort ${Math.round(o.effort * 100)} %)` : ' (manuel)';
+  valsEl.textContent = `objet : ${dTxt} · f′ = ${frU(o.f, 2)} cm${effTxt} · image à ${imgTxt} · rétine à ${frU(o.D)} cm`;
+  rangeEl.textContent = `vision nette : de ${fmtD(o.PP)} à ${fmtD(o.PR)}${o.corr ? ' (avec verre)' : ''}`;
 
-  /* diagnostic */
+  /* diagnostic pédagogique */
   if (o.infinite) {
     setStatus('virt', 'Objet dans le plan focal : image à l’infini');
   } else if (o.sharp) {
-    setStatus('ok', o.corr ? 'Image nette sur la rétine ✓ (corrigé)' : 'Image nette sur la rétine ✓');
+    let msg = 'Image nette sur la rétine ✓';
+    if (o.corr) msg += ' — corrigé';
+    else if (o.effort < 0.03) msg += ' — œil au repos';
+    setStatus('ok', msg);
+  } else if (!P.auto) {
+    setStatus('warn', `Image floue — ${o.front ? 'en avant' : 'en arrière'} de la rétine (ajustez f′)`);
+  } else if (o.satMin && !o.front) {
+    if (P.type === 'hyper' && !o.corr) {
+      setStatus('warn', `Hypermétropie — œil trop court : flou de près (PP ≈ ${fmtD(o.PP)})`);
+    } else {
+      setStatus('warn', `Trop près ! Objet plus près que le PP (${fmtD(o.PP)})`);
+    }
+  } else if (o.satMax && o.front) {
+    if (P.type === 'myope' && !o.corr) {
+      setStatus('warn', `Myopie — œil trop long : flou de loin (PR ≈ ${fmtD(o.PR)})`);
+    } else {
+      setStatus('warn', 'Image floue — en avant de la rétine');
+    }
   } else {
-    const where = o.front ? 'en avant de' : 'en arrière de';
-    let base = `Image floue — ${where} la rétine`;
-    if (!o.corr && P.type === 'myope' && o.front) base = 'Myope : image en avant de la rétine (loin flou)';
-    if (!o.corr && P.type === 'hyper' && !o.front) base = 'Hypermétrope : image en arrière de la rétine (près flou)';
-    setStatus('warn', base);
+    setStatus('warn', `Image floue — ${o.front ? 'en avant' : 'en arrière'} de la rétine`);
   }
 
   syncUI();
@@ -768,9 +1086,14 @@ function updateSim() {
 function setStatus(cls, txt) { statusEl.className = cls; statusEl.textContent = txt; }
 
 function syncUI() {
-  $('sD').value = P.d;  $('oD').textContent = frU(P.d, 0) + ' cm';
+  $('sD').value = P.d;  $('oD').textContent = P.inf ? '∞' : frU(P.d, 0) + ' cm';
+  $('sD').disabled = P.inf;
+  $('sD').parentElement.classList.toggle('disabled', P.inf);
+  bInf.classList.toggle('active', P.inf);
   $('sH').value = P.h;  $('oH').textContent = frU(P.h) + ' cm';
-  $('sF').value = P.f;  $('oF').textContent = frU(P.f) + ' cm';
+  $('slH').classList.toggle('disabled', P.inf);
+  $('sH').disabled = P.inf;
+  $('sF').value = P.f;  $('oF').textContent = frU(P.f, 2) + ' cm';
   $('sP').value = P.pupil; $('oP').textContent = frU(P.pupil) + ' mm';
   $('slF').classList.toggle('disabled', P.auto);
   $('sF').disabled = P.auto;
@@ -779,15 +1102,21 @@ function syncUI() {
   btnCorr.classList.toggle('active', P.corr);
   btnCorr.style.display = (P.type === 'normal') ? 'none' : '';
   btnRays.classList.toggle('active', P.rays);
+  document.querySelectorAll('#objRow button').forEach(b =>
+    b.classList.toggle('active', b.dataset.obj === P.obj));
 }
 
 /* =====================================================================
    ÉCOUTEURS UI
    ===================================================================== */
-$('sD').addEventListener('input', e => { P.d = +e.target.value; updateSim(); });
+$('sD').addEventListener('input', e => { P.inf = false; P.d = +e.target.value; updateSim(); });
 $('sH').addEventListener('input', e => { P.h = +e.target.value; updateSim(); });
 $('sF').addEventListener('input', e => { if (!P.auto) { P.f = +e.target.value; updateSim(); } });
 $('sP').addEventListener('input', e => { P.pupil = +e.target.value; updateSim(); });
+bInf.addEventListener('click', () => { P.inf = !P.inf; updateSim(); });
+
+document.querySelectorAll('#objRow button').forEach(b =>
+  b.addEventListener('click', () => { P.obj = b.dataset.obj; updateSim(); }));
 
 function setType(t) {
   P.type = t;
@@ -804,6 +1133,7 @@ $('tHyper').addEventListener('click', () => setType('hyper'));
 btnAcc.addEventListener('click', () => { P.auto = !P.auto; updateSim(); });
 btnCorr.addEventListener('click', () => { if (P.type !== 'normal') { P.corr = !P.corr; updateSim(); } });
 btnRays.addEventListener('click', () => { P.rays = !P.rays; updateSim(); });
+btnView.addEventListener('click', () => { P.view = P.view === 'anat' ? 'reduc' : 'anat'; applyView(); });
 $('btnSet').addEventListener('click', () => {
   slidersBox.hidden = !slidersBox.hidden;
   $('btnSet').classList.toggle('active', !slidersBox.hidden);
@@ -877,7 +1207,7 @@ async function startAR() {
   buildScene();
   modelGroup.visible = false;
 
-  const rGeo = new THREE.RingGeometry(0.045, 0.055, 40);
+  const rGeo = new THREE.RingGeometry(0.05, 0.06, 40);
   rGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
   reticle = new THREE.Mesh(rGeo,
     new THREE.MeshBasicMaterial({ color: 0x4fc3f7, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
@@ -955,7 +1285,7 @@ function start3D() {
 }
 function applyOrbit() {
   orb.el = clamp(orb.el, 0.03, 1.35);
-  orb.r = clamp(orb.r, 0.25, 3.0);
+  orb.r = clamp(orb.r, 0.25, 3.5);
   camera.position.set(
     orb.target.x + orb.r * Math.cos(orb.el) * Math.sin(orb.az),
     orb.target.y + orb.r * Math.sin(orb.el),
@@ -998,7 +1328,7 @@ function onTouchMove(e) {
     if (lastTouchDist > 0) {
       if (mode === 'ar') {
         const s = modelGroup.scale.x * (dist / lastTouchDist);
-        modelGroup.scale.setScalar(clamp(s, 0.15, 4));
+        modelGroup.scale.setScalar(clamp(s, 0.3, 5));
       } else { orb.r /= (dist / lastTouchDist); applyOrbit(); }
     }
     lastTouchDist = dist;
